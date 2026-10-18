@@ -97,7 +97,26 @@ internal static class StardewApkTool
                     && name.EndsWith(".blob.so", StringComparison.OrdinalIgnoreCase)));
 
     public static string? ContentApkPath => GameApkPaths.FirstOrDefault(HasGameContent);
-    public static string? Arm64ApkPath => GameApkPaths.FirstOrDefault(HasAssemblyStore);
+    // Avoid attempting to parse content-only APKs as .NET assembly stores.
+    public static IReadOnlyList<string> AssemblyApkPaths =>
+        GameApkPaths.Where(HasAssemblyStore).ToArray();
+
+    public static string? Arm64ApkPath => AssemblyApkPaths.FirstOrDefault();
+
+    /// <summary>Refresh package metadata after the user updates the installed game.</summary>
+    public static void RefreshCurrentPackage()
+    {
+        var selected = Application.Context
+            .GetSharedPreferences(PreferencesName, FileCreationMode.Private)?
+            .GetString(SelectedPackageKey, null);
+        if (!string.IsNullOrWhiteSpace(selected))
+        {
+            _currentPackageInfo = ApkTool.GetPackageInfo(selected);
+            return;
+        }
+        _currentPackageInfo = ApkTool.GetPackageInfo(GameGalaxyStorePackageName)
+            ?? ApkTool.GetPackageInfo(GamePlayStorePackageName);
+    }
 
     // Structural check only. It doesn't establish ownership or guarantee that a
     // modified APK is safe or compatible with a particular Android SMAPI build.
