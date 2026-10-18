@@ -100,7 +100,7 @@ internal static class AuroraUi
         var text = new TextView(context) { Text = value };
         text.SetTextSize(Android.Util.ComplexUnitType.Sp, sizeSp);
         text.SetTextColor(color);
-        text.IncludeFontPadding = false;
+        text.SetIncludeFontPadding(false);
         if (bold)
             text.SetTypeface(null, TypefaceStyle.Bold);
         return text;

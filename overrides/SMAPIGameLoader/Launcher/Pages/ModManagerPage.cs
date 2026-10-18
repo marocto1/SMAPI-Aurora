@@ -47,7 +47,7 @@ internal sealed class ModManagerPage : LinearLayout
         header.AddView(_counts, AuroraUi.ItemParams(context, 16));
 
         var search = new EditText(context);
-        search.SingleLine = true;
+        search.SetSingleLine(true);
         search.Hint = "Search installed mods";
         search.SetHintTextColor(AuroraUi.Muted);
         search.SetTextColor(AuroraUi.White);
@@ -96,7 +96,7 @@ internal sealed class ModManagerPage : LinearLayout
         _list.SetAdapter(_adapter);
         _list.SetPadding(AuroraUi.Dp(context, 14), AuroraUi.Dp(context, 6),
             AuroraUi.Dp(context, 14), AuroraUi.Dp(context, 94));
-        _list.ClipToPadding = false;
+        _list.SetClipToPadding(false);
         _list.VerticalScrollBarEnabled = false;
         _list.SetItemAnimator(new DefaultItemAnimator());
         body.AddView(_list, new FrameLayout.LayoutParams(

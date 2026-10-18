@@ -58,7 +58,7 @@ public sealed class LauncherActivity : AppCompatActivity
 
     private void BuildUi(int restoreTab)
     {
-        var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        var root = new LinearLayout(this) { Orientation = Android.Widget.Orientation.Vertical };
         root.SetBackgroundColor(AuroraUi.Background);
         SetContentView(root);
 
