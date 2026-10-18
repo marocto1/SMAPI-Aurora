@@ -1,14 +1,14 @@
 plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.marocto.smapi.aurora.preview06'
+    namespace 'com.marocto.smapi.aurora.preview'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.marocto.smapi.aurora.preview'
+        applicationId 'com.marocto.smapi.aurora.preview061'
         minSdk 28
         targetSdk 32
-        versionCode 600
-        versionName '0.6.0-preview'
+        versionCode 601
+        versionName '0.6.1-preview'
     }
     buildTypes {
         release { minifyEnabled false }
