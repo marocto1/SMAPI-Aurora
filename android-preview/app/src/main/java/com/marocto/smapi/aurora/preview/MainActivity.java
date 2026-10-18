@@ -44,6 +44,7 @@ public final class MainActivity extends Activity {
     private boolean busyMods=false, busyGame=false;
     private String modError="";
     private boolean reduceMotion=false;
+    private int modFilter=0; // all, enabled, disabled, issues
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -161,7 +162,7 @@ public final class MainActivity extends Activity {
         top.addView(branding,new LinearLayout.LayoutParams(0,-2,1f));
         branding.addView(label("✦   S M A P I   /   A U R O R A"),fill(5));
         branding.addView(txt("ANDROID PREVIEW",12,MUTED,false),fill(0));
-        top.addView(pill("v0.5.1",MINT));
+        top.addView(pill("v0.6.0",MINT));
     }
     private void homePage() {
         text(content,"Твоя долина.\nТвои правила.",30,WHITE,true,7);
@@ -213,26 +214,99 @@ public final class MainActivity extends Activity {
         box.addView(button("＋  Импортировать ZIP модов",false,this::importModZip),fill(0));
         LinearLayout summary=(LinearLayout)card(content,12);
         summary.addView(label("БИБЛИОТЕКА"),fill(8));
+        int issueCount=0;
+        for(ModWorkspace.Mod mod:mods) if(!mod.issues.isEmpty()) issueCount++;
         text(summary,busyMods?"Проверка папки…":
-            modError.isEmpty()?mods.size()+" мод(ов) найдено":modError,16,WHITE,true,9);
+            modError.isEmpty()?mods.size()+" мод(ов) · "+issueCount+" требуют внимания":modError,
+            16,WHITE,true,9);
         summary.addView(button("Обновить список",false,this::refreshMods),fill(0));
+
+        LinearLayout filters=row();
+        content.addView(filters,fill(12));
+        String[] titles={"Все","Вкл.","Выкл.","Ошибки"};
+        for(int i=0;i<titles.length;i++) {
+            final int next=i;
+            Button choice=button(titles[i],modFilter==i,()->{modFilter=next;render();});
+            LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(0,dp(44),1f);
+            fp.rightMargin=dp(i==titles.length-1?0:5);
+            filters.addView(choice,fp);
+        }
+
+        int visible=0;
         for(ModWorkspace.Mod mod:mods) {
-            LinearLayout item=(LinearLayout)card(content,9);
+            if(modFilter==1 && !mod.enabled) continue;
+            if(modFilter==2 && mod.enabled) continue;
+            if(modFilter==3 && mod.issues.isEmpty()) continue;
+            visible++;
+            LinearLayout item=(LinearLayout)card(content,10);
             LinearLayout r=row();
-            item.addView(r,fill(6));
-            TextView icon=txt("✦",24,PURPLE,true);
+            item.addView(r,fill(8));
+            TextView icon=txt("✦",24,mod.issues.isEmpty()?PURPLE:WARN,true);
             r.addView(icon,lp(37,-2,0));
             LinearLayout details=column();
             r.addView(details,new LinearLayout.LayoutParams(0,-2,1f));
             text(details,mod.name,15,WHITE,true,4);
             text(details,"v"+mod.version+" · "+(mod.enabled?"Включён":"Выключен"),12,MUTED,false,0);
-            if(!mod.uniqueId.isEmpty()) text(item,mod.uniqueId,11,PURPLE,false,0);
+            if(!mod.uniqueId.isEmpty()) text(item,mod.uniqueId,11,PURPLE,false,6);
+            for(String issue:mod.issues)
+                text(item,"⚠  "+issue,12,WARN,false,5);
+
+            if(mod.rootFolder()) {
+                text(item,"Корневая папка не может быть переименована или удалена.",12,MUTED,false,0);
+                continue;
+            }
+            LinearLayout actions=row();
+            item.addView(actions,fill(0));
+            Button toggle=button(mod.enabled?"Отключить":"Включить",false,
+                ()->performModAction(mod,false,!mod.enabled));
+            Button remove=button("Удалить",false,()->confirmDeleteMod(mod));
+            LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,dp(46),1f);
+            left.rightMargin=dp(8);
+            actions.addView(toggle,left);
+            actions.addView(remove,new LinearLayout.LayoutParams(0,dp(46),1f));
+            toggle.setEnabled(!busyMods);
+            remove.setEnabled(!busyMods);
         }
-        if(mods.isEmpty() && !busyMods && modError.isEmpty()) {
+        if(visible==0 && !busyMods && modError.isEmpty()) {
             LinearLayout empty=(LinearLayout)card(content,7);
-            text(empty,"Здесь появятся моды из выбранной папки.",13,MUTED,false,0);
+            text(empty,mods.isEmpty()?"Здесь появятся моды из выбранной папки.":
+                "По этому фильтру модов нет.",13,MUTED,false,0);
         }
     }
+    private void confirmDeleteMod(ModWorkspace.Mod mod) {
+        new AlertDialog.Builder(this)
+            .setTitle("Удалить мод?")
+            .setMessage("Будет полностью удалена папка: "+mod.folder+
+                "\n\nЭто нельзя отменить. Сохранения игры не затрагиваются.")
+            .setNegativeButton("Отмена",null)
+            .setPositiveButton("Удалить",(dialog,which)->performModAction(mod,true,false))
+            .show();
+    }
+
+    private void performModAction(ModWorkspace.Mod mod,boolean delete,boolean enabled) {
+        if(busyMods) return;
+        String selected=prefs.getString("mods_tree","");
+        if(selected.isEmpty()){alert("Папка не выбрана","Сначала выбери папку Mods");return;}
+        busyMods=true;
+        if(page.equals("mods"))render();
+        work.execute(()->{
+            String failure=null;
+            try {
+                ModWorkspace workspace=new ModWorkspace(this,Uri.parse(selected));
+                if(delete) workspace.deleteMod(mod);
+                else workspace.setEnabled(mod,enabled);
+            }catch(Exception e){failure=e.getMessage();}
+            final String problem=failure;
+            main.post(()->{
+                if(isFinishing())return;
+                busyMods=false;
+                if(problem==null) toast(delete?"Мод удалён":enabled?"Мод включён":"Мод отключён");
+                else alert("Не удалось изменить мод",problem);
+                refreshMods();
+            });
+        });
+    }
+
     private void settingsPage() {
         text(content,"Настройки",29,WHITE,true,8);
         text(content,"Персонализация и информация об Aurora",13,MUTED,false,20);
@@ -247,8 +321,8 @@ public final class MainActivity extends Activity {
         }),fill(0));
         LinearLayout about=(LinearLayout)card(content,16);
         about.addView(label("О ПРИЛОЖЕНИИ"),fill(11));
-        text(about,"SMAPI Aurora · 0.5.1 Preview",17,WHITE,true,8);
-        text(about,"Нативный Android-интерфейс, обнаружение установленных игр и управление папкой модов через системный файловый интерфейс.",13,MUTED,false,12);
+        text(about,"SMAPI Aurora · 0.6.0 Preview",17,WHITE,true,8);
+        text(about,"Нативный Android-интерфейс, диагностика APK, установка ZIP, включение, отключение и удаление модов через Android Files.",13,MUTED,false,12);
         text(about,"Этот APK не является полнофункциональным SMAPI Loader. Он не включает, не модифицирует и не обходит лицензионные проверки Stardew Valley.",12,MUTED,false,0);
         content.addView(button("Открыть исходники на GitHub",false,()->{
             Intent i=new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/marocto1/SMAPI-Aurora"));
