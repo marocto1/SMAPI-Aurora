@@ -1,14 +1,16 @@
-# SMAPI Aurora v0.5.0 — Android game compatibility diagnostics
+# SMAPI Aurora — Android launcher
 
-**Android-only source patch. Not a compiled or device-tested APK.**
+**Latest installable companion:** [v0.6.1 Preview APK](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.6.1-preview). It manages a selected mod folder but does **not** load SMAPI into the game.
 
-## Android APK build (GitHub Actions)
+**Full SMAPI Aurora launcher:** source overlay targeting .NET 9 Android; **NOT YET A WORKING RELEASE**. The complete game-launching runtime has not passed Android compilation and device tests.
 
-An [Android ARM64 debug APK build workflow](.github/workflows/android-build.yml) is now included. It uses a GitHub-hosted Linux runner, Java 17, .NET 9.0.312 and the Android workload, so **no Windows machine is required**. The workflow automatically checks out the pinned original launcher, applies Aurora, and builds a debug APK when its private build requirements are present.
+## Building the full SMAPI launcher
 
-**Current blocker:** the original loader requires three game-derived reference DLLs that are not provided in this public repository. The [first APK build attempt](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39114396985) failed at the dependency preflight, not at C# compilation. An APK has **not** been produced.
+The [Android ARM64 build workflow](.github/workflows/android-build.yml) now supports an optional automatic, legally published **API-only reference** fallback from [StardewModders/mod-reference-assemblies](https://github.com/StardewModders/mod-reference-assemblies), plus the open-source MonoGame Android NuGet package. This can test compilation without installed game binaries, but **does not contain Android-specific game APIs and is insufficient for a working SMAPI APK**.
 
-Read [BUILD_STATUS.md](BUILD_STATUS.md) for precise secret names and private archive requirements, and [Android device test plan](docs/ANDROID_DEVICE_TEST_PLAN.md) for testing once a binary exists. Do not upload paid game assets into public GitHub source or artifact archives.
+The original launcher still needs genuine compatible Android `StardewValley.dll`, `StardewValley.GameData.dll`, and `MonoGame.Framework.dll` as private compile-time references, plus a modified Mono runtime and verified SMAPI Android binaries. Paid game assemblies must never be published in this source repository or distributed in the launcher APK.
+
+Read [BUILD_STATUS.md](BUILD_STATUS.md) for verified failure logs, build modes and remaining blockers. See [Android device test plan](docs/ANDROID_DEVICE_TEST_PLAN.md) before considering a non-preview release.
 
 
 
