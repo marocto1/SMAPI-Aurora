@@ -157,7 +157,7 @@ def plan(repo: Path) -> dict[Path, str]:
         '<ApplicationId>com.marocto.smapi.aurora</ApplicationId>', str(project))
     original = replace_once(original,
         '<ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion>',
-        '<ApplicationDisplayVersion>0.4.0</ApplicationDisplayVersion>', str(project))
+        '<ApplicationDisplayVersion>0.5.0</ApplicationDisplayVersion>', str(project))
     patches[project] = original
     for overlay in OVERLAY_ROOT.rglob('*.cs'):
         rel = overlay.relative_to(OVERLAY_ROOT)
