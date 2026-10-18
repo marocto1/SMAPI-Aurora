@@ -114,17 +114,29 @@ jobs:
         shell: bash
         run: dotnet workload install android --skip-manifest-update
 
-      - name: Build debug-signed Android arm64 APK
+      - name: Compile Android launcher (public references are API-only)
         shell: bash
         run: |
+          set -euo pipefail
+          if [[ "$AURORA_REFS_MODE" == "private" ]]; then
+            # The game's startup path is intentionally disabled in DEBUG.
+            # Private mobile API builds must use Release even for internal QA.
+            CONFIG=Release
+            SIGNED=true
+          else
+            # Desktop reference assemblies are intentionally diagnostic only.
+            CONFIG=Debug
+            SIGNED=false
+            echo "::warning::Desktop compile-only references lack mobile Stardew Valley API types. A build artifact cannot be treated as a working game launcher."
+          fi
           dotnet publish .aurora-build/SMAPILoader/SMAPIGameLoader/SMAPIGameLoader.csproj \
-            --framework net9.0-android --configuration Debug --runtime android-arm64 \
-            -p:AndroidPackageFormat=apk -p:AndroidKeyStore=false
+            --framework net9.0-android --configuration "$CONFIG" --runtime android-arm64 \
+            -p:AndroidPackageFormat=apk -p:AndroidKeyStore="$SIGNED"
 
-      - name: Archive installable debug APK
+      - name: Archive unverified Android QA APK (never a production release)
         uses: actions/upload-artifact@v4
         with:
-          name: SMAPI-Aurora-Android-ARM64-debug
-          path: .aurora-build/SMAPILoader/SMAPIGameLoader/bin/Debug/net9.0-android/**/*.apk
+          name: SMAPI-Aurora-Android-ARM64-UNVERIFIED
+          path: .aurora-build/SMAPILoader/SMAPIGameLoader/bin/**/*.apk
           if-no-files-found: error
           retention-days: 7
