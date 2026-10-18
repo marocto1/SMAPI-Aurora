@@ -182,8 +182,12 @@ internal sealed class ModManagerPage : LinearLayout
 
     private void OnToggledMod(ModInfo mod)
     {
-        AuroraModHealth.Scan(_allMods);
-        ApplyFilter();
+        // The switch callback may run during RecyclerView layout; defer list refresh.
+        Post(() =>
+        {
+            AuroraModHealth.Scan(_allMods);
+            ApplyFilter();
+        });
     }
 
     private void ShowDiagnostics()

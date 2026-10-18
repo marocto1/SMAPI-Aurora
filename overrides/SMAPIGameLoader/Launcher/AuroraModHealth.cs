@@ -74,7 +74,11 @@ internal static class AuroraModHealth
                     foreach (var dependency in dependencies.OfType<JObject>())
                     {
                         var id = dependency["UniqueID"]?.ToString();
-                        var isRequired = dependency["IsRequired"]?.Value<bool?>() ?? true;
+                        var flag = dependency["IsRequired"];
+                        var isRequired = flag == null ||
+                            (flag.Type == JTokenType.Boolean && flag.Value<bool>());
+                        if (flag != null && flag.Type != JTokenType.Boolean)
+                            item.Warnings.Add("Invalid IsRequired flag in dependency: " + id);
                         if (isRequired && !string.IsNullOrWhiteSpace(id))
                             CheckReference(byId, id, item.Warnings);
                     }
