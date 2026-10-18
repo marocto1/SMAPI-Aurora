@@ -1,42 +1,41 @@
-# Android APK build status
+# SMAPI Aurora full Android release — build status
 
-**State: BLOCKED — required private game compilation references are not configured.**
+**State: NOT READY FOR RELEASE.** The native v0.6.1 preview builds, but it does not inject SMAPI into Stardew Valley. The true .NET 9 Aurora runtime has not compiled or passed device/game/mod testing.
 
-Last pipeline attempt: [GitHub Actions #39114396985](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39114396985).
+## What we investigated on 19 October 2026
 
-## What is already automated
+We found publicly distributed **compile-only** API references in [StardewModders/mod-reference-assemblies](https://github.com/StardewModders/mod-reference-assemblies), pinned to commit `0141355fecb8536715ecff22f99374b5e632cbed`. These support PC Stardew Valley 1.6.15 mod CI **without a game installation** and are not playable game DLLs.
 
-- Clone upstream SMAPILoader at commit `092c686`.
-- Apply Aurora v0.5 overlay and check source anchors.
-- Verify SHA-256 checksum of a privately hosted references ZIP.
-- Accept *only* `StardewValley.dll`, `StardewValley.GameData.dll`, and `MonoGame.Framework.dll`.
-- Install Java 17, Android SDK, .NET SDK 9.0.312 and Android workload on GitHub's Linux runner.
-- Attempt a debug Android ARM64 APK build and publish the result as a private run artifact if successful.
+For MonoGame Android APIs we used the open-source NuGet package [MonoGame.Framework.Android 3.8.6](https://www.nuget.org/packages/MonoGame.Framework.Android/3.8.6).
 
-## Required private GitHub Actions secrets
+- [First compile attempt](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39174775813): failed because desktop MonoGame does not define `AndroidGameActivity`.
+- [Second compile attempt](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39174973409): reached C# and found **mobile-only Stardew Valley APIs missing from PC reference assemblies**. These include the mobile `MainActivity`, `Game1.OnAppResume`, `Game1.OnAppPause`, `Game1.emergencyBackup`, `Game1.xEdge`, `Game1.toolbarPaddingX`, and mobile MonoGame members. This proves the public PC reference set is insufficient for the actual Android launcher.
+- Four independent Aurora Android UI C# binding errors were fixed in commit `d405f283a00e5f910b8f7d71a74c6a0d22a4b9a1` (`SetIncludeFontPadding`, view orientation, `SetSingleLine`, `SetClipToPadding`).
 
-Open repository **Settings → Secrets and variables → Actions → New repository secret**.
+**Do not replace missing mobile API types with dummy runtime classes**: a resulting APK could compile but would not be a functional SMAPI/game integration.
 
-| Secret | Meaning |
-| --- | --- |
-| `AURORA_GAME_REFS_URL` | HTTPS URL of your **private, access-controlled** ZIP containing the three compilation DLLs from a legitimately installed compatible game. |
-| `AURORA_GAME_REFS_SHA256` | Expected 64-character SHA-256 hex digest of that ZIP. |
+## How the build workflow works now
 
-The URL must be reachable by the GitHub Actions runner with any credentials *already embedded securely in the secret*, e.g. a short-lived signed URL. Do not post the URL in issues, README, workflows, commits or chat. The workflow never uploads or includes reference ZIPs in build artifacts. Never store game binaries in a public repository.
+`.github/workflows/android-build.yml` has two modes:
 
-The ZIP must contain exactly the three required DLLs, either at root or in a single `DependenciesDll/` directory. The files are **compile-time references**, not a replacement for a genuine game installation. GitHub cannot extract them from your phone automatically. Don't use third-party or untrusted DLL download websites.
+1. **Mobile references via private GitHub secrets** `AURORA_GAME_REFS_URL` and `AURORA_GAME_REFS_SHA256`: SHA-256-check and unpack compile references from a private ZIP containing `StardewValley.dll`, `StardewValley.GameData.dll`, and `MonoGame.Framework.dll` taken from a legally installed **compatible Android** version. Compiles **Release** to avoid the upstream `#if DEBUG` block that intentionally refuses game startup. This still requires Android QA and is not automatically production-ready.
+2. **No private references**: automatically fetches pinned public PC reference assemblies and official Android MonoGame to run **compile diagnostics**, compiling Debug. This does not prove Android mobile API compatibility and must not be published as a functional release.
 
-Once the secrets are available, open **Actions → Build SMAPI Aurora Android APK → Run workflow**. A successful run should contain an artifact named `SMAPI-Aurora-Android-ARM64-debug`.
+The build also needs the .NET 9 Android workload, custom Mono runtime, Harmony/MonoMod compatibility, and compatible SMAPI Android distribution. A successful compile would not verify those at runtime.
 
-## What is NOT yet verified
+## Conditions before we call it a full release
 
-- The project has not yet passed full Android compilation with game references.
-- The app has not yet run on an Android device.
-- No released, installable APK is available.
-- A structurally compatible APK is not guaranteed to be playable; Aurora does not bypass DRM or license checks.
+- Build Aurora .NET launcher with correct Android game API references.
+- Verify the generated APK is installable, correctly signed, and targets Android ARM64.
+- Ensure the game assemblies are read at runtime from the installed, legitimately owned game (do not embed or publicly redistribute paid game assets).
+- Confirm that the selected game's base/split APKs work with asset extraction and assembly rewriting.
+- Test the actual Stardew Valley startup and loaded SMAPI version on physical Android hardware.
+- Install and run representative SMAPI mods on a disposable test save; protect originals.
+- Inspect crash/SMAPI logs; resolve regressions; only then publish a non-preview release.
 
-The upstream project also uses a patched Mono runtime; other build errors may appear after the DLL preflight. Preserve build logs and fix those separately. Do not call a source-patch validation success an Android build success.
+## Existing deliverables
 
-## Device smoke testing after an APK exists
+- [Aurora v0.6.1 Preview](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.6.1-preview) — installable native companion, **not** the game mod runtime.
+- [Aurora source](https://github.com/marocto1/SMAPI-Aurora) — contains the .NET 9 launcher overlay and CI attempts.
 
-See [Android device testing plan](docs/ANDROID_DEVICE_TEST_PLAN.md) for testing with an isolated save and real device logs.
+There is no working full Aurora release APK yet.
