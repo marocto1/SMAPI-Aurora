@@ -1,0 +1,38 @@
+name: Aurora JunimoGate host core tests
+
+on:
+  push:
+    paths:
+      - '.github/workflows/junimogate-host-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.118'
+      - name: Fetch immutable JunimoGate engine
+        run: |
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+      - name: Build and test platform-neutral engine components
+        working-directory: .aurora-build/JunimoGate
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        run: dotnet test JunimoGate.Host.slnf --configuration Release --verbosity minimal --nologo
+      - name: Preserve source attribution and libraries
+        working-directory: .aurora-build/JunimoGate
+        run: |
+          test -s LICENSE
+          test -s LICENSE-EXCEPTION
+          test -s THIRD-PARTY-NOTICES.md
+          git diff --name-only | tee /tmp/aurora-patch-diff.txt
+          ! grep -E '^(src/JunimoGate\.(Core|Extraction|Rewriter|Mods|GameHost|Android)/|smapi/|build/|LICENSE|licenses/)' /tmp/aurora-patch-diff.txt
