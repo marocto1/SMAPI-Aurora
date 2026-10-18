@@ -23,8 +23,8 @@ internal sealed class ModManagerPage : LinearLayout
     private readonly TextView _empty;
     private readonly RecyclerView _list;
     private string _filter = "";
-    private int _stateFilter; // 0 = all, 1 = enabled, 2 = disabled
-    private readonly Button[] _filterButtons = new Button[3];
+    private int _stateFilter; // 0 all, 1 enabled, 2 disabled, 3 issues
+    private readonly Button[] _filterButtons = new Button[4];
 
     public FloatingActionButton InstallFab { get; }
 
@@ -58,7 +58,7 @@ internal sealed class ModManagerPage : LinearLayout
         header.AddView(search, AuroraUi.ItemParams(context, 13));
 
         var filters = new LinearLayout(context) { Orientation = Orientation.Horizontal };
-        string[] filterNames = { "All", "Enabled", "Disabled" };
+        string[] filterNames = { "All", "Enabled", "Disabled", "Issues" };
         for (int i = 0; i < filterNames.Length; i++)
         {
             int selection = i;
@@ -66,7 +66,7 @@ internal sealed class ModManagerPage : LinearLayout
             chip.SetPadding(AuroraUi.Dp(context, 5), 0, AuroraUi.Dp(context, 5), 0);
             _filterButtons[i] = chip;
             filters.AddView(chip, new LayoutParams(0, AuroraUi.Dp(context, 45), 1f)
-            { RightMargin = i == 2 ? 0 : AuroraUi.Dp(context, 7) });
+            { RightMargin = i == filterNames.Length - 1 ? 0 : AuroraUi.Dp(context, 5) });
             chip.Click += (_, __) =>
             {
                 _stateFilter = selection;
@@ -74,7 +74,12 @@ internal sealed class ModManagerPage : LinearLayout
                 ApplyFilter();
             };
         }
-        header.AddView(filters);
+        header.AddView(filters, AuroraUi.ItemParams(context, 10));
+        var diagnose = AuroraUi.Action(context, "Run dependency diagnostics");
+        diagnose.SetAllCaps(false);
+        diagnose.ContentDescription = "Show local mod compatibility warnings";
+        diagnose.Click += (_, __) => ShowDiagnostics();
+        header.AddView(diagnose, AuroraUi.ItemParams(context, 9));
         UpdateFilterButtons();
         search.TextChanged += (_, __) =>
         {
@@ -132,6 +137,7 @@ internal sealed class ModManagerPage : LinearLayout
         {
             ErrorDialogTool.Show(error);
         }
+        AuroraModHealth.Scan(_allMods);
         ApplyFilter();
     }
 
@@ -142,7 +148,9 @@ internal sealed class ModManagerPage : LinearLayout
         {
             var matchesText = _filter.Length == 0
                 || mod.modName.Contains(_filter, StringComparison.OrdinalIgnoreCase);
-            var matchesState = _stateFilter == 0 || (mod.Enabled == (_stateFilter == 1));
+            var matchesState = _stateFilter == 0
+                || (_stateFilter == 3 && AuroraModHealth.GetIssues(mod).Count > 0)
+                || (_stateFilter is 1 or 2 && mod.Enabled == (_stateFilter == 1));
             if (matchesText && matchesState)
                 _visibleMods.Add(mod);
         }
@@ -168,22 +176,60 @@ internal sealed class ModManagerPage : LinearLayout
     {
         int enabled = _allMods.Count(mod => mod.Enabled);
         int disabled = _allMods.Count - enabled;
-        _counts.Text = $"{_allMods.Count} installed  ·  {enabled} enabled  ·  {disabled} disabled";
+        int warningCount = _allMods.Count(mod => AuroraModHealth.GetIssues(mod).Count > 0);
+        _counts.Text = $"{_allMods.Count} installed · {enabled} enabled · {disabled} disabled · {warningCount} need attention";
     }
 
-    private void OnToggledMod(ModInfo mod) => ApplyFilter();
+    private void OnToggledMod(ModInfo mod)
+    {
+        AuroraModHealth.Scan(_allMods);
+        ApplyFilter();
+    }
+
+    private void ShowDiagnostics()
+    {
+        AuroraModHealth.Scan(_allMods);
+        ApplyFilter();
+        var problems = _allMods
+            .Select(mod => new { mod, issues = AuroraModHealth.GetIssues(mod) })
+            .Where(item => item.issues.Count > 0)
+            .ToList();
+        var body = problems.Count == 0
+            ? "No manifest or required dependency issues found. Android compatibility is not guaranteed."
+            : string.Join("\n\n", problems.Take(18).Select(item =>
+                item.mod.modName + "\n• " + string.Join("\n• ", item.issues))) +
+                (problems.Count > 18 ? "\n\nMore mods have warnings; use the Issues filter." : "");
+        new AlertDialog.Builder(_context)
+            .SetTitle($"Dependency diagnostics · {problems.Count} affected mods")
+            .SetMessage(body)
+            .SetPositiveButton("OK", (_, __) => { })
+            .Show();
+    }
+
 
     private void OnClickedMod(ModInfo mod, View anchor)
     {
         var menu = new PopupMenu(_context, anchor);
         menu.Menu!.Add(0, 1, 0, "Open folder");
         menu.Menu.Add(0, 2, 1, "Delete mod");
+        menu.Menu.Add(0, 3, 2, "Check dependencies");
         menu.MenuItemClick += (_, e) =>
         {
             if (e.Item?.ItemId == 1)
             {
                 try { FileTool.OpenAppFiles(mod.ModFolderPath); }
                 catch (Exception ex) { Toast.MakeText(_context, ex.Message, ToastLength.Short)?.Show(); }
+            }
+            else if (e.Item?.ItemId == 3)
+            {
+                var issues = AuroraModHealth.GetIssues(mod);
+                new AlertDialog.Builder(_context)
+                    .SetTitle(mod.modName)
+                    .SetMessage(issues.Count == 0
+                        ? "No required dependency problems detected. Android compatibility is not guaranteed."
+                        : "Compatibility warnings:\n• " + string.Join("\n• ", issues))
+                    .SetPositiveButton("OK", (_, __) => { })
+                    .Show();
             }
             else if (e.Item?.ItemId == 2)
             {

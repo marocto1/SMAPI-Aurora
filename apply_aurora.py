@@ -117,10 +117,38 @@ def safe_advanced_patches(repo: Path, edits: dict[Path, str]) -> None:
     edits[rel] = content
 
 
+def safe_mod_patches(repo: Path, edits: dict[Path, str]) -> None:
+    """Guard imported mod archives, restrict deletions to Mods, and report failures."""
+    rel = Path('SMAPIGameLoader/Launcher/ModInstaller.cs')
+    code = (repo / rel).read_text(encoding='utf-8-sig')
+    code = replace_once(code,
+        'zip.ExtractToDirectory(outputDir, true);',
+        'AuroraModArchive.ExtractChecked(zip, outputDir);', str(rel))
+    code = replace_once(code,
+        'OnInstalledCallback.Invoke();',
+        'OnInstalledCallback?.Invoke();', str(rel))
+    code = replace_once(code,
+        '''            if (ModsDirPath == folderPath)
+                return false;''',
+        '''            // Restrict deletion to descendants of the Mods folder.
+            var root = Path.GetFullPath(ModsDirPath)
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var target = Path.GetFullPath(folderPath);
+            if (!target.StartsWith(root, StringComparison.Ordinal))
+                return false;''', str(rel))
+    code = replace_once(code,
+        '''            ErrorDialogTool.Show(ex);
+            return true;''',
+        '''            ErrorDialogTool.Show(ex);
+            return false;''', str(rel))
+    edits[rel] = code
+
+
 def plan(repo: Path) -> dict[Path, str]:
     # Validates source code anchors before any changes are made.
     patches = build_patches(repo)
     safe_advanced_patches(repo, patches)
+    safe_mod_patches(repo, patches)
     # Standalone Aurora package ID, so the original launcher can coexist.
     project = Path('SMAPIGameLoader/SMAPIGameLoader.csproj')
     original = (repo / project).read_text(encoding='utf-8-sig')
@@ -129,7 +157,7 @@ def plan(repo: Path) -> dict[Path, str]:
         '<ApplicationId>com.marocto.smapi.aurora</ApplicationId>', str(project))
     original = replace_once(original,
         '<ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion>',
-        '<ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>', str(project))
+        '<ApplicationDisplayVersion>0.4.0</ApplicationDisplayVersion>', str(project))
     patches[project] = original
     for overlay in OVERLAY_ROOT.rglob('*.cs'):
         rel = overlay.relative_to(OVERLAY_ROOT)

@@ -37,7 +37,7 @@ public sealed class HomePage : LinearLayout
         content.AddView(headline, AuroraUi.ItemParams(context, 5));
         var subtitle = AuroraUi.Text(context, "One launcher. All your mods.", 14, AuroraUi.Muted);
         content.AddView(subtitle, AuroraUi.ItemParams(context, 14));
-        content.AddView(AuroraUi.Pill(context, "v0.3  ·  ANDROID PREVIEW", AuroraUi.Mint),
+        content.AddView(AuroraUi.Pill(context, "v0.4  ·  ANDROID PREVIEW", AuroraUi.Mint),
             new LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent)
             { BottomMargin = AuroraUi.Dp(context, 20) });
 

@@ -87,7 +87,10 @@ internal sealed class ModViewHolder : RecyclerView.ViewHolder
     {
         _mod = mod;
         _name.Text = mod.modName;
-        _version.Text = "v" + mod.modVersion + (mod.Enabled ? "  ·  Enabled" : "  ·  Disabled");
+        var issues = AuroraModHealth.GetIssues(mod);
+        _version.Text = "v" + mod.modVersion + (mod.Enabled ? " · Enabled" : " · Disabled")
+            + (issues.Count == 0 ? "" : $" · ⚠ {issues.Count} warning(s)");
+        _version.SetTextColor(issues.Count == 0 ? AuroraUi.Muted : AuroraUi.AccentSoft);
         _binding = true;
         _toggle.Checked = mod.Enabled;
         _binding = false;
