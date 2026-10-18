@@ -23,11 +23,23 @@ jobs:
           git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
           git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
           python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
-      - name: Build and test platform-neutral engine components
+      - name: Build and test isolated platform-neutral engine components
         working-directory: .aurora-build/JunimoGate
         env:
           DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-        run: dotnet test JunimoGate.Host.slnf --configuration Release --verbosity minimal --nologo
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Upstream NuGet.Config contains a generated project-local feed.
+          # These four host suites only use public NuGet dependencies.
+          mkdir -p artifacts/nuget
+          for testproj in \
+            tests/JunimoGate.Core.Tests/JunimoGate.Core.Tests.csproj \
+            tests/JunimoGate.Extraction.Tests/JunimoGate.Extraction.Tests.csproj \
+            tests/JunimoGate.Rewriter.Tests/JunimoGate.Rewriter.Tests.csproj \
+            tests/JunimoGate.Mods.Tests/JunimoGate.Mods.Tests.csproj; do
+            dotnet test "$testproj" --configuration Release --verbosity minimal --nologo
+          done
       - name: Preserve source attribution and libraries
         working-directory: .aurora-build/JunimoGate
         run: |
