@@ -36,7 +36,7 @@ jobs:
           unzip -t android-preview/app/build/outputs/apk/debug/app-debug.apk | tail -1
       - uses: actions/upload-artifact@v4
         with:
-          name: SMAPI-Aurora-Preview-v0.5.1-APK
+          name: SMAPI-Aurora-Preview-v0.6.0-APK
           path: android-preview/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -48,20 +48,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cp android-preview/app/build/outputs/apk/debug/app-debug.apk SMAPI-Aurora-v0.5.1-Preview.apk
+          cp android-preview/app/build/outputs/apk/debug/app-debug.apk SMAPI-Aurora-v0.6.0-Preview.apk
           cat > "$RUNNER_TEMP/aurora-release-notes.md" <<'EOF'
           Native Android preview of the SMAPI Aurora interface.
 
-          Includes installed-game selection, structural APK diagnostics, mod ZIP import into a folder explicitly chosen with Android Files, mod manifest browsing, and the ability to launch a normal installed game.
+          Includes installed-game selection, APK diagnostics, safe ZIP import, mod enable/disable and delete with confirmation, manifest dependency warnings, and mod issue filters in a user-selected Android Files folder.
 
           **Important:** This preview does NOT load SMAPI mods into Stardew Valley. The original .NET SMAPI-based Aurora launcher is still blocked by missing game-derived compilation references and has not been device-tested.
 
-          Debug-signed experimental APK. Back up your data, and use a test Mods folder.
+          Debug-signed experimental APK. v0.6.0 has a distinct package ID to avoid debug signature conflicts with the older v0.5.1 preview. Back up your data, and use a test Mods folder. The system file picker may block access to Android/data on Android 11+.
           EOF
-          if gh release view v0.5.1-preview >/dev/null 2>&1; then
-            gh release upload v0.5.1-preview SMAPI-Aurora-v0.5.1-Preview.apk --clobber
+          if gh release view v0.6.0-preview >/dev/null 2>&1; then
+            gh release upload v0.6.0-preview SMAPI-Aurora-v0.6.0-Preview.apk --clobber
           else
-            gh release create v0.5.1-preview SMAPI-Aurora-v0.5.1-Preview.apk --prerelease \
-              --title "SMAPI Aurora v0.5.1 — Android Preview" \
+            gh release create v0.6.0-preview SMAPI-Aurora-v0.6.0-Preview.apk --prerelease \
+              --title "SMAPI Aurora v0.6.0 — Android Preview" \
               --notes-file "$RUNNER_TEMP/aurora-release-notes.md"
           fi

@@ -1,9 +1,19 @@
-# SMAPI Aurora Preview — installable Android APK
+# SMAPI Aurora v0.6.0 Preview
 
-A native Android companion **preview**, built from our own source in this repository. It deliberately does **not** claim to inject SMAPI into Stardew Valley or bypass ownership protections. The full patched SMAPI launcher still needs private compilation references.
+**An installable native Android companion APK, not yet a full SMAPI runtime.**
 
-Features available in the preview: dark animated native UI, installed Android game chooser (including sideloaded apps visible to Android), read-only base/split APK structure/version diagnostics, launch the selected installed game **without SMAPI**, Android Storage Access Framework mod-workspace selection and mod manifest browsing.
+The Android Preview provides Aurora's custom interface, installed Android game selection, structural base/split APK diagnostics, and **launching the ordinary game without SMAPI**.
 
-See `../BUILD_STATUS.md` for full SMAPI build requirements. The preview has a different Android package ID so it will not overwrite the original loader.
+## Mod Manager in v0.6
 
-Run **Build Aurora Android preview APK** under GitHub Actions to retrieve the debug APK artifact. Do not interpret this companion preview as the final SMAPI runtime.
+- Use Android Files to select a Mods workspace folder you can read and write.
+- Import compatible mod ZIPs with path and size validation.
+- Read manifests and display required dependency warnings and duplicate UniqueIDs.
+- Filter installed mods by All / Enabled / Disabled / Issues.
+- Enable or disable a mod by renaming its folder to remove/add a leading dot.
+- Delete a selected mod folder only after explicit confirmation. The selected workspace root cannot be deleted or toggled.
+- All operations depend on Storage Access Framework permissions; Android 11+ often restricts Android/data access.
+
+The package ID is `com.marocto.smapi.aurora.preview06`, separate from v0.5.1 due to ephemeral debug signing keys. Preview APKs are experimental and device behavior has not yet been verified.
+
+See [the real .NET build blocker](../BUILD_STATUS.md) for the full SMAPI launcher. The native preview cannot load SMAPI mods **inside Stardew Valley**.
