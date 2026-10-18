@@ -298,7 +298,7 @@ def plan(root: Path) -> dict[Path, str]:
 
     p = APP / "Resources/layout/fragment_home.xml"
     s = read(root, p)
-    old = '        <com.google.android.material.card.MaterialCardView\n'
+    old = '        <com.google.android.material.card.MaterialCardView\n            android:layout_width="match_parent"\n            android:layout_height="wrap_content"\n            app:cardBackgroundColor="@android:color/transparent"'
     new = """        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
