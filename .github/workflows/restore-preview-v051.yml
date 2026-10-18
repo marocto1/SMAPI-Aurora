@@ -1,0 +1,31 @@
+name: Restore original Aurora v0.5.1 Preview release
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-preview-v051.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  restore-original-asset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve original v0.5.1 compiled APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v051"
+          gh run download 39115621778 --repo "${{ github.repository }}" \
+            --name SMAPI-Aurora-Preview-v0.5.1-APK --dir "$RUNNER_TEMP/v051"
+          test -s "$RUNNER_TEMP/v051/app-debug.apk"
+          echo "e662c38d0b2221257dabe44c0faddac9a4d7c9e209fe6f678494ea770b701cb9  $RUNNER_TEMP/v051/app-debug.apk" | sha256sum -c
+      - name: Restore matching v0.5.1 APK asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v0.5.1-preview \
+            "$RUNNER_TEMP/v051/app-debug.apk#SMAPI-Aurora-v0.5.1-Preview.apk" \
+            --repo "${{ github.repository }}" --clobber
