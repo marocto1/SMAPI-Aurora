@@ -158,6 +158,12 @@ def plan(repo: Path) -> dict[Path, str]:
     original = replace_once(original,
         '<ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion>',
         '<ApplicationDisplayVersion>0.5.0</ApplicationDisplayVersion>', str(project))
+    # Game-derived DLLs are local compile references only. The launcher must
+    # extract them from the user's installed game instead of shipping copies.
+    original = replace_once(original,
+        '<Reference Include="MonoGame.Framework">\n\t\t\t<HintPath>..\\..\\SMAPI-Android-1.6\\src\\DependenciesDll\\MonoGame.Framework.dll</HintPath>\n\t\t</Reference>',
+        '<Reference Include="MonoGame.Framework">\n\t\t\t<HintPath>..\\..\\SMAPI-Android-1.6\\src\\DependenciesDll\\MonoGame.Framework.dll</HintPath>\n\t\t\t<Private>False</Private>\n\t\t</Reference>',
+        str(project))
     patches[project] = original
     for overlay in OVERLAY_ROOT.rglob('*.cs'):
         rel = overlay.relative_to(OVERLAY_ROOT)
