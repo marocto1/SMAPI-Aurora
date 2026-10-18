@@ -14,6 +14,12 @@ The bridge clone, transformation, and Android XML consistency checks execute
 in [Aurora JunimoGate bridge validation](../.github/workflows/junimogate-bridge.yml).
 No commercial game files are included or distributed.
 
+### Verified CI gates
+
+- [Pinned source overlay and XML integration PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176471760) — validates original JunimoGate commit, Aurora resource links, app identity, Russian selector, and that game/runtime/license files stay untouched.
+- [Platform-neutral JunimoGate host suites PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176757497) — separately compiles and executes the public-dependency Core, Extraction, Rewriter and Mods tests after applying the Aurora overlay.
+- **Not tested:** Android assembly compilation, game execution, physical-device SMAPI and mod loading.
+
 ## What the first integration implements
 
 - Keeps JunimoGate's existing `JunimoGate.GameHost`, GameHostBridge,
