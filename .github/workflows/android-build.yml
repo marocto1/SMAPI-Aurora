@@ -62,8 +62,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Prepare Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Use preinstalled GitHub Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?Android SDK is missing from runner}"
+          test -d "$ANDROID_HOME/platforms"
+          echo "Android SDK: $ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms"
 
       - name: Install .NET 9.0.312
         uses: actions/setup-dotnet@v4
