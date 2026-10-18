@@ -11,7 +11,10 @@ import apply_aurora as aurora
 def fixture() -> dict[str, str]:
     return {
       'SMAPILoader.sln': 'Microsoft Visual Studio Solution File',
-      'SMAPIGameLoader/SMAPIGameLoader.csproj': '<Project><ApplicationId>com.companyname.SMAPIGameLoader</ApplicationId><ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion></Project>',
+      'SMAPIGameLoader/SMAPIGameLoader.csproj': '''<Project><ApplicationId>com.companyname.SMAPIGameLoader</ApplicationId><ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion>
+<Reference Include="MonoGame.Framework">
+			<HintPath>..\\..\\SMAPI-Android-1.6\\src\\DependenciesDll\\MonoGame.Framework.dll</HintPath>
+		</Reference></Project>''',
       'SMAPIGameLoader/AndroidManifest.xml': '<manifest>\n\t<queries>\n\t</queries>\n</manifest>',
       'SMAPIGameLoader/Launcher/LauncherActivity.cs': '''using System;
 class LauncherActivity {
@@ -126,6 +129,7 @@ def run():
         assert 'Smooth animations' in patch[Path('SMAPIGameLoader/Launcher/Pages/SettingsPage.cs')]
         assert 'CheckAsync' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
         assert '0.5.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
+        assert '<Private>False</Private>' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
         assert 'AuroraGameDiagnostics.Scan' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
         assert 'View game compatibility report' in patch[Path('SMAPIGameLoader/Launcher/Pages/HomePage.cs')]
         assert 'RefreshCurrentPackage' in patch[Path('SMAPIGameLoader/Tool/StardewApkTool.cs')]
