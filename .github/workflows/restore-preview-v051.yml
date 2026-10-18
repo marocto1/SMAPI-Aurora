@@ -22,10 +22,16 @@ jobs:
             --name SMAPI-Aurora-Preview-v0.5.1-APK --dir "$RUNNER_TEMP/v051"
           test -s "$RUNNER_TEMP/v051/app-debug.apk"
           echo "e662c38d0b2221257dabe44c0faddac9a4d7c9e209fe6f678494ea770b701cb9  $RUNNER_TEMP/v051/app-debug.apk" | sha256sum -c
-      - name: Restore matching v0.5.1 APK asset
+      - name: Replace the original v0.5.1 release asset with verified APK bytes
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/v051/app-debug.apk" "$RUNNER_TEMP/v051/SMAPI-Aurora-v0.5.1-Preview.apk"
+          gh release delete-asset v0.5.1-preview SMAPI-Aurora-v0.5.1-Preview.apk \
+            --repo "${{ github.repository }}" --yes
           gh release upload v0.5.1-preview \
-            "$RUNNER_TEMP/v051/app-debug.apk#SMAPI-Aurora-v0.5.1-Preview.apk" \
-            --repo "${{ github.repository }}" --clobber
+            "$RUNNER_TEMP/v051/SMAPI-Aurora-v0.5.1-Preview.apk" \
+            --repo "${{ github.repository }}"
+          gh release delete-asset v0.5.1-preview app-debug.apk \
+            --repo "${{ github.repository }}" --yes || true
