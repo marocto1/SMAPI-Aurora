@@ -19,6 +19,7 @@ jobs:
         run: |
           python -m py_compile apply_aurora.py compat/compat_core.py tests/test_patch.py
           python tests/test_patch.py
+          python -m unittest discover -s tests -p 'test_android_build.py' -v
       - name: Checkout upstream at tested commit
         run: |
           git clone --filter=blob:none https://github.com/NRTnarathip/SMAPILoader.git /tmp/SMAPILoader
