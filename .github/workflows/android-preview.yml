@@ -34,9 +34,19 @@ jobs:
         run: |
           test -s android-preview/app/build/outputs/apk/debug/app-debug.apk
           unzip -t android-preview/app/build/outputs/apk/debug/app-debug.apk | tail -1
+      - name: Verify Android manifest package and real launch activity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=android-preview/app/build/outputs/apk/debug/app-debug.apk
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-badging.txt"
+          grep -F "name='com.marocto.smapi.aurora.preview061'" "$RUNNER_TEMP/aurora-badging.txt"
+          grep -F "launchable-activity: name='com.marocto.smapi.aurora.preview.MainActivity'" "$RUNNER_TEMP/aurora-badging.txt"
       - uses: actions/upload-artifact@v4
         with:
-          name: SMAPI-Aurora-Preview-v0.6.0-APK
+          name: SMAPI-Aurora-Preview-v0.6.1-APK
           path: android-preview/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -48,7 +58,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          cp android-preview/app/build/outputs/apk/debug/app-debug.apk SMAPI-Aurora-v0.6.0-Preview.apk
+          cp android-preview/app/build/outputs/apk/debug/app-debug.apk SMAPI-Aurora-v0.6.1-Preview.apk
           cat > "$RUNNER_TEMP/aurora-release-notes.md" <<'EOF'
           Native Android preview of the SMAPI Aurora interface.
 
@@ -56,12 +66,12 @@ jobs:
 
           **Important:** This preview does NOT load SMAPI mods into Stardew Valley. The original .NET SMAPI-based Aurora launcher is still blocked by missing game-derived compilation references and has not been device-tested.
 
-          Debug-signed experimental APK. v0.6.0 has a distinct package ID to avoid debug signature conflicts with the older v0.5.1 preview. Back up your data, and use a test Mods folder. The system file picker may block access to Android/data on Android 11+.
+          Debug-signed experimental APK. v0.6.1 has a distinct package ID to avoid debug signature conflicts with the older v0.5.1 preview. Back up your data, and use a test Mods folder. The system file picker may block access to Android/data on Android 11+.
           EOF
-          if gh release view v0.6.0-preview >/dev/null 2>&1; then
-            gh release upload v0.6.0-preview SMAPI-Aurora-v0.6.0-Preview.apk --clobber
+          if gh release view v0.6.1-preview >/dev/null 2>&1; then
+            gh release upload v0.6.1-preview SMAPI-Aurora-v0.6.1-Preview.apk --clobber
           else
-            gh release create v0.6.0-preview SMAPI-Aurora-v0.6.0-Preview.apk --prerelease \
-              --title "SMAPI Aurora v0.6.0 — Android Preview" \
+            gh release create v0.6.1-preview SMAPI-Aurora-v0.6.1-Preview.apk --prerelease \
+              --title "SMAPI Aurora v0.6.1 — Android Preview" \
               --notes-file "$RUNNER_TEMP/aurora-release-notes.md"
           fi
