@@ -17,19 +17,24 @@ jobs:
       - name: Checkout Aurora source overlay
         uses: actions/checkout@v4
 
-      - name: Verify private build dependencies are configured
+      - name: Select compile-only reference source
         env:
           GAME_REFS_URL: ${{ secrets.AURORA_GAME_REFS_URL }}
           GAME_REFS_SHA256: ${{ secrets.AURORA_GAME_REFS_SHA256 }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$GAME_REFS_URL" || -z "$GAME_REFS_SHA256" ]]; then
-            echo "::error::Cannot build the Android launcher yet. Configure AURORA_GAME_REFS_URL and AURORA_GAME_REFS_SHA256 as repository Actions secrets. They must reference a PRIVATE ZIP with StardewValley.dll, StardewValley.GameData.dll and MonoGame.Framework.dll obtained from a legitimately installed game. Do not commit game binaries or your download URL."
-            exit 1
-          fi
-          if [[ ! "$GAME_REFS_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]; then
-            echo "::error::AURORA_GAME_REFS_SHA256 must be a 64-digit SHA-256 hexadecimal digest."
+          if [[ -n "$GAME_REFS_URL" && -n "$GAME_REFS_SHA256" ]]; then
+            if [[ ! "$GAME_REFS_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]; then
+              echo "::error::Invalid SHA256 for private reference archive"
+              exit 1
+            fi
+            echo "AURORA_REFS_MODE=private" >> "$GITHUB_ENV"
+          elif [[ -z "$GAME_REFS_URL" && -z "$GAME_REFS_SHA256" ]]; then
+            echo "AURORA_REFS_MODE=public" >> "$GITHUB_ENV"
+            echo "::notice::Using desktop compile-only API references from StardewModders 1.6.15, not actual mobile game DLLs. Successful compile does not certify Android runtime compatibility."
+          else
+            echo "::error::Provide both private reference secrets or neither"
             exit 1
           fi
 
@@ -41,20 +46,34 @@ jobs:
           python3 apply_aurora.py .aurora-build/SMAPILoader --dry-run
           python3 apply_aurora.py .aurora-build/SMAPILoader
 
-      - name: Download and validate private compile references
+      - name: Acquire version-pinned compiler reference assemblies
         shell: bash
         env:
           GAME_REFS_URL: ${{ secrets.AURORA_GAME_REFS_URL }}
           GAME_REFS_SHA256: ${{ secrets.AURORA_GAME_REFS_SHA256 }}
         run: |
           set -euo pipefail
-          curl --fail --location --retry 2 --silent --show-error \
-            --output "$RUNNER_TEMP/aurora-private-references.zip" "$GAME_REFS_URL"
-          printf '%s  %s\n' "$GAME_REFS_SHA256" "$RUNNER_TEMP/aurora-private-references.zip" | sha256sum --check --status
-          python3 scripts/prepare_android_build.py \
-            --archive "$RUNNER_TEMP/aurora-private-references.zip" \
-            --target .aurora-build/SMAPI-Android-1.6/src/DependenciesDll
-          rm -f "$RUNNER_TEMP/aurora-private-references.zip"
+          DEST=.aurora-build/SMAPI-Android-1.6/src/DependenciesDll
+          mkdir -p "$DEST"
+          if [[ "$AURORA_REFS_MODE" == "private" ]]; then
+            curl --fail --location --retry 2 --silent --show-error \
+              --output "$RUNNER_TEMP/aurora-private-references.zip" "$GAME_REFS_URL"
+            printf '%s  %s\n' "$GAME_REFS_SHA256" "$RUNNER_TEMP/aurora-private-references.zip" | sha256sum --check --status
+            python3 scripts/prepare_android_build.py \
+              --archive "$RUNNER_TEMP/aurora-private-references.zip" --target "$DEST"
+            rm -f "$RUNNER_TEMP/aurora-private-references.zip"
+          else
+            git clone --filter=blob:none https://github.com/StardewModders/mod-reference-assemblies.git "$RUNNER_TEMP/mod-reference-assemblies"
+            git -C "$RUNNER_TEMP/mod-reference-assemblies" checkout 0141355fecb8536715ecff22f99374b5e632cbed
+            cp "$RUNNER_TEMP/mod-reference-assemblies/Stardew Valley.dll" "$DEST/StardewValley.dll"
+            cp "$RUNNER_TEMP/mod-reference-assemblies/StardewValley.GameData.dll" "$DEST/"
+            cp "$RUNNER_TEMP/mod-reference-assemblies/MonoGame.Framework.dll" "$DEST/"
+            # Never place reference-only API stubs into distributable APK output.
+            echo "::notice::Reference-only build. Runtime compatibility and mobile API parity remain unverified."
+          fi
+          test -s "$DEST/StardewValley.dll"
+          test -s "$DEST/StardewValley.GameData.dll"
+          test -s "$DEST/MonoGame.Framework.dll"
 
       - name: Install Java 17 for Android
         uses: actions/setup-java@v4
