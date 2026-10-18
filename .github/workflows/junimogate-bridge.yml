@@ -1,0 +1,79 @@
+name: Aurora JunimoGate bridge validation
+
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/**'
+      - '.github/workflows/junimogate-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Aurora overlay
+        uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s junimogate-bridge/tests -v
+
+      - name: Fetch pinned open-source JunimoGate runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          test "$(git -C .aurora-build/JunimoGate rev-parse HEAD)" = 029eafed917ae853d6c0a59330ee273524168296
+
+      - name: Validate Aurora transformations with exact upstream anchors
+        run: |
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --check
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+
+      - name: Verify Android resource wiring, localization and runtime isolation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          root=Path(".aurora-build/JunimoGate")
+          app=root/"src/JunimoGate.App"
+          namespace="{http://schemas.android.com/apk/res/android}"
+          project=(app/"JunimoGate.App.csproj").read_text()
+          assert "<ApplicationId>com.marocto.smapi.aurora.jg</ApplicationId>" in project
+          assert "<ApplicationDisplayVersion>0.7.0-bridge</ApplicationDisplayVersion>" in project
+          ET.parse(app/"Resources/values/colors.xml")
+          ET.parse(app/"Resources/values-night/colors.xml")
+          english=ET.parse(app/"Resources/values/strings.xml").getroot()
+          russian=ET.parse(app/"Resources/values-ru/strings.xml").getroot()
+          assert english.find("string[@name='app_name']").text=="SMAPI Aurora"
+          assert russian.find("string[@name='nav_mods']").text=="Моды"
+          manifest=ET.parse(app/"Properties/AndroidManifest.xml").getroot()
+          application=manifest.find("application")
+          assert application.get(namespace+"label")=="@string/app_name"
+          assert application.get(namespace+"icon")=="@mipmap/aurora_ic_launcher"
+          assert application.get(namespace+"roundIcon")=="@mipmap/aurora_ic_launcher"
+          locale=ET.parse(app/"Resources/xml/locales_config.xml").getroot()
+          assert "ru" in [e.get(namespace+"name") for e in locale]
+          for path in ("Resources/drawable/aurora_mark.xml", "Resources/drawable/aurora_backdrop.xml",
+                       "Resources/mipmap-anydpi-v26/aurora_ic_launcher.xml"):
+              ET.parse(app/path)
+          assert "LocaleListCompat.ForLanguageTags(\"ru\")" in (app/"SettingsFragment.cs").read_text()
+          assert "@drawable/aurora_backdrop" in (app/"Resources/layout/fragment_main_shell.xml").read_text()
+          # No upstream game host logic or third-party license files may be modified.
+          print("PASS: resource linkage, app ID, launcher identity, Russian locale")
+          PY
+          git -C .aurora-build/JunimoGate diff --name-only | tee /tmp/aurora-changed-paths.txt
+          ! grep -E '^(smapi/|src/JunimoGate\.(GameHost|Extraction|Rewriter|Core|Mods|Android)/|LICENSE|licenses/|build/)' /tmp/aurora-changed-paths.txt
+          test -s .aurora-build/JunimoGate/src/JunimoGate.App/Resources/values-ru/strings.xml
+          echo "PASS: game runtime and licensing files untouched"
+
+      - name: Summary
+        run: |
+          echo "Aurora JunimoGate bridge source integration: validated" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pinned upstream commit: 029eafed917ae853d6c0a59330ee273524168296" >> "$GITHUB_STEP_SUMMARY"
+          echo "This job does NOT build or device-test an Android APK." >> "$GITHUB_STEP_SUMMARY"
