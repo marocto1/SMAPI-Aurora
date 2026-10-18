@@ -1,5 +1,23 @@
 # SMAPI Aurora — Android launcher
 
+## New development path: Aurora with JunimoGate SMAPI runtime
+
+The old SMAPILoader source overlay is now retained for reference and existing
+v0.6.1 Preview releases. The active full-runtime migration is the
+[JunimoGate bridge](junimogate-bridge/README.md): it applies the Aurora app
+identity, theme and Russian UI onto pinned open-source JunimoGate, while
+preserving its actual SMAPI GameHost, mod management, and Android game checks.
+
+- [Pinned bridge source patch](junimogate-bridge/apply_aurora.py)
+- [Integration and XML validation workflow](.github/workflows/junimogate-bridge.yml)
+- [Licensing, limitations and build prerequisites](junimogate-bridge/README.md)
+
+**Important:** This is a source migration, **not** a ready-to-install
+Aurora SMAPI release. The full Android build and real-device mod tests have
+not yet been completed, and genuine mobile game compiler references remain
+necessary. JunimoGate also validates installed-game signer identity.
+
+
 **Latest installable companion:** [v0.6.1 Preview APK](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.6.1-preview). It manages a selected mod folder but does **not** load SMAPI into the game.
 
 **Full SMAPI Aurora launcher:** source overlay targeting .NET 9 Android; **NOT YET A WORKING RELEASE**. The complete game-launching runtime has not passed Android compilation and device tests.
