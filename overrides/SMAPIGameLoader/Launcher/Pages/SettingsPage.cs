@@ -55,7 +55,7 @@ internal sealed class SettingsPage : ScrollView
         stack.AddView(about, AuroraUi.ItemParams(context, 20));
         about.AddView(AuroraUi.Text(context, "About Aurora", 17, AuroraUi.White, true),
             AuroraUi.ItemParams(context, 12));
-        about.AddView(AuroraUi.Pill(context, "v0.4.0  ·  ANDROID PREVIEW", AuroraUi.Mint),
+        about.AddView(AuroraUi.Pill(context, "v0.5.0  ·  ANDROID PREVIEW", AuroraUi.Mint),
             new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.WrapContent)
             { BottomMargin = AuroraUi.Dp(context, 15) });
         about.AddView(AuroraUi.Text(context,
