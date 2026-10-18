@@ -1,0 +1,90 @@
+name: Build SMAPI Aurora Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout Aurora source overlay
+        uses: actions/checkout@v4
+
+      - name: Verify private build dependencies are configured
+        env:
+          GAME_REFS_URL: ${{ secrets.AURORA_GAME_REFS_URL }}
+          GAME_REFS_SHA256: ${{ secrets.AURORA_GAME_REFS_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$GAME_REFS_URL" || -z "$GAME_REFS_SHA256" ]]; then
+            echo "::error::Cannot build the Android launcher yet. Configure AURORA_GAME_REFS_URL and AURORA_GAME_REFS_SHA256 as repository Actions secrets. They must reference a PRIVATE ZIP with StardewValley.dll, StardewValley.GameData.dll and MonoGame.Framework.dll obtained from a legitimately installed game. Do not commit game binaries or your download URL."
+            exit 1
+          fi
+          if [[ ! "$GAME_REFS_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo "::error::AURORA_GAME_REFS_SHA256 must be a 64-digit SHA-256 hexadecimal digest."
+            exit 1
+          fi
+
+      - name: Clone pinned upstream SMAPI Loader
+        shell: bash
+        run: |
+          git clone --filter=blob:none https://github.com/NRTnarathip/SMAPILoader.git .aurora-build/SMAPILoader
+          git -C .aurora-build/SMAPILoader checkout 092c6864838dd2118d216cb3e03f3c731ad17c08
+          python3 apply_aurora.py .aurora-build/SMAPILoader --dry-run
+          python3 apply_aurora.py .aurora-build/SMAPILoader
+
+      - name: Download and validate private compile references
+        shell: bash
+        env:
+          GAME_REFS_URL: ${{ secrets.AURORA_GAME_REFS_URL }}
+          GAME_REFS_SHA256: ${{ secrets.AURORA_GAME_REFS_SHA256 }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 2 --silent --show-error \
+            --output "$RUNNER_TEMP/aurora-private-references.zip" "$GAME_REFS_URL"
+          printf '%s  %s\n' "$GAME_REFS_SHA256" "$RUNNER_TEMP/aurora-private-references.zip" | sha256sum --check --status
+          python3 scripts/prepare_android_build.py \
+            --archive "$RUNNER_TEMP/aurora-private-references.zip" \
+            --target .aurora-build/SMAPI-Android-1.6/src/DependenciesDll
+          rm -f "$RUNNER_TEMP/aurora-private-references.zip"
+
+      - name: Install Java 17 for Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install .NET 9.0.312
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.312'
+
+      - name: Install .NET Android workload
+        shell: bash
+        run: dotnet workload install android --skip-manifest-update
+
+      - name: Build debug-signed Android arm64 APK
+        shell: bash
+        run: |
+          dotnet publish .aurora-build/SMAPILoader/SMAPIGameLoader/SMAPIGameLoader.csproj \
+            --framework net9.0-android --configuration Debug --runtime android-arm64 \
+            -p:AndroidPackageFormat=apk -p:AndroidKeyStore=false
+
+      - name: Archive installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-Android-ARM64-debug
+          path: .aurora-build/SMAPILoader/SMAPIGameLoader/bin/Debug/net9.0-android/**/*.apk
+          if-no-files-found: error
+          retention-days: 7
