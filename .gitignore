@@ -5,3 +5,9 @@ obj/
 aurora_backups/
 *.apk
 *.keystore
+
+# Never commit copied game assembly references or private build inputs.
+.aurora-build/
+*.dll
+*game-refs*.zip
+*private-references*.zip
