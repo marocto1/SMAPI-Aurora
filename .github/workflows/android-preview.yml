@@ -6,7 +6,7 @@ on:
       - '.github/workflows/android-preview.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-preview:
     runs-on: ubuntu-latest
@@ -40,3 +40,28 @@ jobs:
           path: android-preview/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Aurora Preview prerelease
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp android-preview/app/build/outputs/apk/debug/app-debug.apk SMAPI-Aurora-v0.5.1-Preview.apk
+          cat > "$RUNNER_TEMP/aurora-release-notes.md" <<'EOF'
+          Native Android preview of the SMAPI Aurora interface.
+
+          Includes installed-game selection, structural APK diagnostics, mod ZIP import into a folder explicitly chosen with Android Files, mod manifest browsing, and the ability to launch a normal installed game.
+
+          **Important:** This preview does NOT load SMAPI mods into Stardew Valley. The original .NET SMAPI-based Aurora launcher is still blocked by missing game-derived compilation references and has not been device-tested.
+
+          Debug-signed experimental APK. Back up your data, and use a test Mods folder.
+          EOF
+          if gh release view v0.5.1-preview >/dev/null 2>&1; then
+            gh release upload v0.5.1-preview SMAPI-Aurora-v0.5.1-Preview.apk --clobber
+          else
+            gh release create v0.5.1-preview SMAPI-Aurora-v0.5.1-Preview.apk --prerelease \
+              --title "SMAPI Aurora v0.5.1 — Android Preview" \
+              --notes-file "$RUNNER_TEMP/aurora-release-notes.md"
+          fi
