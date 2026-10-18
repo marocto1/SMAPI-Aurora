@@ -28,6 +28,9 @@ jobs:
           python apply_aurora.py /tmp/SMAPILoader --dry-run
           python apply_aurora.py /tmp/SMAPILoader
           test -f /tmp/SMAPILoader/SMAPIGameLoader/Launcher/Pages/SettingsPage.cs
-          grep -q '0.3.0' /tmp/SMAPILoader/SMAPIGameLoader/SMAPIGameLoader.csproj
+          grep -q '0.4.0' /tmp/SMAPILoader/SMAPIGameLoader/SMAPIGameLoader.csproj
           grep -q 'CheckAsync' /tmp/SMAPILoader/SMAPIGameLoader/Launcher/GameCardInfo.cs
           git -C /tmp/SMAPILoader diff --stat
+          test -f /tmp/SMAPILoader/SMAPIGameLoader/Launcher/AuroraModHealth.cs
+          test -f /tmp/SMAPILoader/SMAPIGameLoader/Launcher/AuroraModArchive.cs
+          grep -q 'AuroraModArchive.ExtractChecked' /tmp/SMAPILoader/SMAPIGameLoader/Launcher/ModInstaller.cs

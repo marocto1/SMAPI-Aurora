@@ -1,42 +1,36 @@
-# SMAPI Aurora v0.3.0 — Android launcher prototype
+# SMAPI Aurora v0.4.0 — Android mod manager
 
-**Android-only source patch; no APK has been built or verified yet.**
+**Android-only source overlay. Not a built or device-tested APK.**
 
-Aurora is a community UI and compatibility overlay for [NRTnarathip/SMAPILoader](https://github.com/NRTnarathip/SMAPILoader), tested against upstream commit [`092c686`](https://github.com/NRTnarathip/SMAPILoader/commit/092c6864838dd2118d216cb3e03f3c731ad17c08). It retains the original project's GPL-3.0 attribution and license.
+Aurora extends [NRTnarathip/SMAPILoader](https://github.com/NRTnarathip/SMAPILoader) with a custom Android UI and improved source compatibility. The integration targets upstream [092c686](https://github.com/NRTnarathip/SMAPILoader/commit/092c6864838dd2118d216cb3e03f3c731ad17c08), under GPL-3.0. Original upstream developers retain attribution.
 
-## What's new in v0.3
+## New in v0.4 — Advanced Mod Manager
 
-- Updated Android home screen, gradient play panel, readiness state and clearer setup steps.
-- Game compatibility verification runs outside of the UI thread, to reduce freezes during APK scanning.
-- A new Settings tab with an option to disable motion; animations respect Android's animator duration scale.
-- Mod manager now filters All / Enabled / Disabled; searches are case-insensitive and the list is sorted by name.
-- Improved navigation and tab restoration after activity recreation (e.g. rotations).
-- Separate Android application ID `com.marocto.smapi.aurora`, display version `0.3.0`.
-- Source CI now checks the patch against **real pinned upstream code**, not only mock fixtures.
+- New **Issues** filter, **Run dependency diagnostics** action, and per-mod warning counts.
+- Read-only manifest checks: missing/disabled required dependencies, ContentPackFor framework, duplicate UniqueID, invalid manifests and minimum version mismatches.
+- ZIP archive checks **before extraction**: path containment, entry-count and expanded-size caps, duplicate file paths.
+- Mod deletion now rejects paths outside the Mods directory and correctly reports errors instead of false success.
+- Optional mod-pack completion callback is now null-safe.
+- Includes v0.3 interface, reduced-motion settings, game selection and SMAPI management.
 
-## Features retained from v0.2
+**Limitations:** Local diagnostics are heuristic and do not guarantee Android mod compatibility. ZIP extraction is not transactional; imported files may overwrite existing mods. Back up game saves and Mods before using an experimental build. It does not bypass DRM or provide copyrighted game files.
 
-- Installation/source selection of compatible installed Stardew Valley APKs, including single APK and split APK layout recognition.
-- SMAPI Android ZIP install/remove UI, mod import, toggle and delete operations.
-- Avoid CPU busy-spin in UI dispatcher, reject ZIP entries that escape the target folder.
-
-## Reproduce the source integration
+## How to apply to the upstream source
 
 ```sh
 git clone https://github.com/NRTnarathip/SMAPILoader.git
-cd SMAPILoader && git checkout 092c6864838dd2118d216cb3e03f3c731ad17c08 && cd ..
+git -C SMAPILoader checkout 092c6864838dd2118d216cb3e03f3c731ad17c08
 python3 apply_aurora.py SMAPILoader --dry-run
 python3 apply_aurora.py SMAPILoader
 ```
 
-This is an **overlay/patch project**, not the complete upstream tree or a downloadable working launcher. Building a signed APK needs a properly configured .NET 9 / Android SDK toolchain, upstream custom Mono and compatible dependencies including game-derived .NET references. Do not upload copyrighted game DLLs to a public repository. The CI workflow verifies patch application, **not compilation or device behavior**.
+Apply the overlay with Python 3.10 or later; source backups are created. Android package ID: `com.marocto.smapi.aurora`, version: `0.4.0`.
 
-The package selector is not a DRM bypass and cannot guarantee support for modified or unauthorized game copies. No game data, APKs, decryption keys or credentials are provided. Redistribution is subject to GPL-3.0 and third-party license obligations.
+The CI checks Python syntax, mock integration and patch application to pinned upstream code. **It does not compile or test an Android APK.** A build additionally needs .NET 9, Android SDK, JDK, upstream patched Mono and compatible game-derived references. No APK or game DLLs are redistributed.
 
-## Layout
+## Source layout
 
-- `apply_aurora.py` — applies overlays and source compatibility fixes with backups.
-- `overrides/` — new UI screens and activity changes.
-- `compat/` — installed APK recognition and extraction improvements.
-- `tests/` — mock-source smoke tests.
-- `.github/workflows/source-tests.yml` — pinned upstream integration verification.
+- `overrides/` — Android UI and mod inspection/archive safety helpers.
+- `compat/` — compatible installed APK detection.
+- `apply_aurora.py` — source patcher with file backups.
+- `tests/` — offline integration checks.

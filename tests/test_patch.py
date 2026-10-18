@@ -72,6 +72,14 @@ class SMAPIInstaller {
                 ZipFileTool.Extract(entry, destExtractFilePath);
             }
 }''',
+      'SMAPIGameLoader/Launcher/ModInstaller.cs': '''class ModInstaller {
+        zip.ExtractToDirectory(outputDir, true);
+                OnInstalledCallback.Invoke();
+            if (ModsDirPath == folderPath)
+                return false;
+            ErrorDialogTool.Show(ex);
+            return true;
+}''',
       'SMAPIGameLoader/Tool/TaskTool.cs': '''using System.Threading.Tasks;
 class TaskTool {
         LastTask = Task.Run(async () =>
@@ -111,13 +119,17 @@ def run():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding='utf-8')
         patch = aurora.plan(repo)
-        assert len(patch) == 17, len(patch)
+        assert len(patch) == 20, len(patch)
         assert 'Choose installed game' in patch[Path('SMAPIGameLoader/Launcher/Pages/HomePage.cs')]
         assert 'SMAPI Aurora' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
         assert 'SettingsPage' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
         assert 'Smooth animations' in patch[Path('SMAPIGameLoader/Launcher/Pages/SettingsPage.cs')]
         assert 'CheckAsync' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
-        assert '0.3.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
+        assert '0.4.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
+        assert 'AuroraModArchive.ExtractChecked' in patch[Path('SMAPIGameLoader/Launcher/ModInstaller.cs')]
+        assert 'Duplicate UniqueID' in patch[Path('SMAPIGameLoader/Launcher/AuroraModHealth.cs')]
+        assert 'MaxTotalBytes' in patch[Path('SMAPIGameLoader/Launcher/AuroraModArchive.cs')]
+        assert 'Run dependency diagnostics' in patch[Path('SMAPIGameLoader/Launcher/Pages/ModManagerPage.cs')]
         assert 'ManualResetEventSlim' in patch[Path('SMAPIGameLoader/Tool/TaskTool.cs')]
         assert 'destination.StartsWith(targetRoot' in patch[Path('SMAPIGameLoader/Launcher/SMAPIInstaller.cs')]
         assert 'GameApkPaths' in patch[Path('SMAPIGameLoader/Tool/StardewApkTool.cs')]
