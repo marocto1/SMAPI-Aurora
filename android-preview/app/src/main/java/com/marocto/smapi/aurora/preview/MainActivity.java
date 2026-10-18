@@ -162,7 +162,7 @@ public final class MainActivity extends Activity {
         top.addView(branding,new LinearLayout.LayoutParams(0,-2,1f));
         branding.addView(label("✦   S M A P I   /   A U R O R A"),fill(5));
         branding.addView(txt("ANDROID PREVIEW",12,MUTED,false),fill(0));
-        top.addView(pill("v0.6.0",MINT));
+        top.addView(pill("v0.6.1",MINT));
     }
     private void homePage() {
         text(content,"Твоя долина.\nТвои правила.",30,WHITE,true,7);
@@ -321,7 +321,7 @@ public final class MainActivity extends Activity {
         }),fill(0));
         LinearLayout about=(LinearLayout)card(content,16);
         about.addView(label("О ПРИЛОЖЕНИИ"),fill(11));
-        text(about,"SMAPI Aurora · 0.6.0 Preview",17,WHITE,true,8);
+        text(about,"SMAPI Aurora · 0.6.1 Preview",17,WHITE,true,8);
         text(about,"Нативный Android-интерфейс, диагностика APK, установка ZIP, включение, отключение и удаление модов через Android Files.",13,MUTED,false,12);
         text(about,"Этот APK не является полнофункциональным SMAPI Loader. Он не включает, не модифицирует и не обходит лицензионные проверки Stardew Valley.",12,MUTED,false,0);
         content.addView(button("Открыть исходники на GitHub",false,()->{
