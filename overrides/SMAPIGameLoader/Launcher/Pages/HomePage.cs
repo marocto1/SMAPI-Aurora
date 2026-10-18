@@ -37,7 +37,7 @@ public sealed class HomePage : LinearLayout
         content.AddView(headline, AuroraUi.ItemParams(context, 5));
         var subtitle = AuroraUi.Text(context, "One launcher. All your mods.", 14, AuroraUi.Muted);
         content.AddView(subtitle, AuroraUi.ItemParams(context, 14));
-        content.AddView(AuroraUi.Pill(context, "v0.4  ·  ANDROID PREVIEW", AuroraUi.Mint),
+        content.AddView(AuroraUi.Pill(context, "v0.5  ·  ANDROID PREVIEW", AuroraUi.Mint),
             new LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent)
             { BottomMargin = AuroraUi.Dp(context, 20) });
 
@@ -85,8 +85,14 @@ public sealed class HomePage : LinearLayout
         selectButton.SetTextColor(AuroraUi.AccentSoft);
         AuroraUi.Ripple(selectButton, AuroraUi.Solid(context, AuroraUi.SurfaceRaised, 15, true));
         selectButton.Click += OnChooseGame;
-        content.AddView(selectButton, AuroraUi.ItemParams(context, 18));
+        content.AddView(selectButton, AuroraUi.ItemParams(context, 10));
         AuroraUi.AddPressAnimation(selectButton);
+
+        var diagnostics = AuroraUi.Action(context, "View game compatibility report");
+        diagnostics.SetAllCaps(false);
+        diagnostics.ContentDescription = "Check installed game APK layout and version";
+        diagnostics.Click += (_, __) => OpenDiagnostics();
+        content.AddView(diagnostics, AuroraUi.ItemParams(context, 18));
 
         SmapiCard = new SMAPIInfoCard(context);
         SmapiCard.StatusChanged += UpdatePlayState;
@@ -113,6 +119,24 @@ public sealed class HomePage : LinearLayout
             : !SMAPIInstaller.IsInstalled
                 ? "Install SMAPI Android to enable launch"
                 : "Everything is ready. Have a good day in the valley!";
+    }
+
+    private void OpenDiagnostics()
+    {
+        Toast.MakeText(Context, "Checking game files…", ToastLength.Short)?.Show();
+        Task.Run(() =>
+        {
+            var report = AuroraGameDiagnostics.Scan();
+            LauncherActivity.Instance.RunOnUiThread(() =>
+            {
+                if (LauncherActivity.Instance.IsFinishing) return;
+                new AlertDialog.Builder(Context)
+                    .SetTitle(report.Ready ? "Game source · Ready" : "Game source · Needs attention")
+                    .SetMessage(report.Format())
+                    .SetPositiveButton("OK", (_, __) => { })
+                    .Show();
+            });
+        });
     }
 
     private void OnChooseGame(object? sender, EventArgs args)
