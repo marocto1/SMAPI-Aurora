@@ -1,0 +1,58 @@
+name: Aurora JunimoGate Android bridge compilation
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/**'
+      - '.github/workflows/junimogate-android-boundary.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned JunimoGate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --check
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+          mkdir -p .aurora-build/JunimoGate/artifacts/nuget
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.312'
+      - name: Verify runner Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?SDK missing}"
+          test -d "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/platforms"
+      - name: Install .NET Android workload
+        run: dotnet workload install android --skip-manifest-update
+      - name: Compile real Android platform integration DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build .aurora-build/JunimoGate/src/JunimoGate.Android/JunimoGate.Android.csproj \
+            --configuration Release --framework net9.0-android35.0 \
+            --verbosity minimal --nologo
+          FILE=.aurora-build/JunimoGate/src/JunimoGate.Android/bin/Release/net9.0-android35.0/JunimoGate.Android.dll
+          test -s "$FILE"
+          file "$FILE"
+          echo "PASS: Aurora's pinned JunimoGate Android C# boundary compiled" >> "$GITHUB_STEP_SUMMARY"
+          echo "This is a library build, not the runnable APK/SMAPI game host." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aurora-Android-Bridge-Library-QA
+          path: .aurora-build/JunimoGate/src/JunimoGate.Android/bin/Release/net9.0-android35.0/JunimoGate.Android.dll
+          retention-days: 7
+          if-no-files-found: error
