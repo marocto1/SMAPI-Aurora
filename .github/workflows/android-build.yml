@@ -67,8 +67,23 @@ jobs:
             git -C "$RUNNER_TEMP/mod-reference-assemblies" checkout 0141355fecb8536715ecff22f99374b5e632cbed
             cp "$RUNNER_TEMP/mod-reference-assemblies/Stardew Valley.dll" "$DEST/StardewValley.dll"
             cp "$RUNNER_TEMP/mod-reference-assemblies/StardewValley.GameData.dll" "$DEST/"
-            cp "$RUNNER_TEMP/mod-reference-assemblies/MonoGame.Framework.dll" "$DEST/"
-            # Never place reference-only API stubs into distributable APK output.
+            # Desktop MonoGame API references lack AndroidGameActivity.
+            # Acquire the open-source MonoGame Android compile assembly instead.
+            curl --fail --location --retry 2 --silent --show-error \
+              "https://api.nuget.org/v3-flatcontainer/monogame.framework.android/3.8.6/monogame.framework.android.3.8.6.nupkg" \
+              -o "$RUNNER_TEMP/monogame-android.nupkg"
+            python3 - "$RUNNER_TEMP/monogame-android.nupkg" "$DEST/MonoGame.Framework.dll" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              paths = [name for name in archive.namelist()
+                       if name.startswith('lib/') and name.endswith('/MonoGame.Framework.dll')]
+              if len(paths) != 1:
+                  raise SystemExit('Could not locate unique MonoGame Android compile assembly: ' + repr(paths))
+              Path(sys.argv[2]).write_bytes(archive.read(paths[0]))
+              print('Using Android MonoGame reference:', paths[0])
+          PY
+            # Never place reference-only game API stubs into distributable APK output.
             echo "::notice::Reference-only build. Runtime compatibility and mobile API parity remain unverified."
           fi
           test -s "$DEST/StardewValley.dll"
