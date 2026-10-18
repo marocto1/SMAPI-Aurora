@@ -1,0 +1,21 @@
+name: Source patch checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify scripts
+        run: python -m py_compile apply_aurora.py compat/compat_core.py tests/test_patch.py
+      - name: Run source patch tests
+        run: python tests/test_patch.py
