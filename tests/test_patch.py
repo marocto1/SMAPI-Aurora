@@ -119,13 +119,18 @@ def run():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding='utf-8')
         patch = aurora.plan(repo)
-        assert len(patch) == 20, len(patch)
+        assert len(patch) == 21, len(patch)
         assert 'Choose installed game' in patch[Path('SMAPIGameLoader/Launcher/Pages/HomePage.cs')]
         assert 'SMAPI Aurora' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
         assert 'SettingsPage' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
         assert 'Smooth animations' in patch[Path('SMAPIGameLoader/Launcher/Pages/SettingsPage.cs')]
         assert 'CheckAsync' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
-        assert '0.4.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
+        assert '0.5.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
+        assert 'AuroraGameDiagnostics.Scan' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
+        assert 'View game compatibility report' in patch[Path('SMAPIGameLoader/Launcher/Pages/HomePage.cs')]
+        assert 'RefreshCurrentPackage' in patch[Path('SMAPIGameLoader/Tool/StardewApkTool.cs')]
+        assert 'AssemblyApkPaths' in patch[Path('SMAPIGameLoader/Game/GameAssemblyManager.cs')]
+        assert 'No supported .NET assembly store found.' in patch[Path('SMAPIGameLoader/Launcher/AuroraGameDiagnostics.cs')]
         assert 'AuroraModArchive.ExtractChecked' in patch[Path('SMAPIGameLoader/Launcher/ModInstaller.cs')]
         assert 'Duplicate UniqueID' in patch[Path('SMAPIGameLoader/Launcher/AuroraModHealth.cs')]
         assert 'MaxTotalBytes' in patch[Path('SMAPIGameLoader/Launcher/AuroraModArchive.cs')]

@@ -1,15 +1,18 @@
 # Changelog
 
+## v0.5.0 · 2026-10-18
+- Read-only installed Android game compatibility diagnostic report.
+- APK status now explains missing content, missing assembly store, invalid archive and unsupported version.
+- Re-read selected installed app metadata when diagnosing updates.
+- Skip non-assembly APKs during .NET assembly extraction.
+- Updated version metadata and upstream source integration smoke tests.
+- No compiled APK or device testing in this release.
+
 ## v0.4.0 · 2026-10-18
-- Mod dependency diagnostics, content pack checks, duplicate mod IDs and manifest errors.
-- Issues filter, on-demand summary, row indicators and per-mod detail.
-- ZIP import preflight with path and size safeguards.
-- Safe deletion bounds check and correct error return, null-safe import callback.
-- Source display version updated to 0.4.0; no compiled APK.
+- Mod dependency diagnostics, Issues filter, safeguarded ZIP import, improved mod deletion.
 
 ## v0.3.0 · 2026-10-18
-- New Settings and reduced-motion preference, background game checks.
-- Mod filters, standalone package ID, UI improvements.
+- Settings, reduced motion, background APK checks, Android UI and mod filters.
 
 ## v0.2.0
-- Initial custom Android UI and compatible APK detection.
+- Initial UI and flexible installed game package detection.

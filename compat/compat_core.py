@@ -113,7 +113,7 @@ def build_patches(repo: Path) -> dict[Path, str]:
 '''
     new = '''            // The assembly store may be in base.apk, arm64 split, or another split.
             // Inspect every installed APK; only extract from APKs with assembly stores.
-            var assemblyApks = StardewApkTool.GameApkPaths;
+            var assemblyApks = StardewApkTool.AssemblyApkPaths;
             foreach (var gameApk in assemblyApks)
             {
                 Console.WriteLine("Looking for .NET assemblies in: " + gameApk);
