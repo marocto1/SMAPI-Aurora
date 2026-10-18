@@ -52,12 +52,14 @@ public sealed class GameInfoCard : CardView
             string package;
             try
             {
-                ready = StardewApkTool.IsGameVersionSupport;
+                var report = AuroraGameDiagnostics.Scan();
+                ready = report.Ready;
                 detail = ready
-                    ? "Stardew Valley  ·  " + StardewApkTool.CurrentGameVersion
-                    : "No compatible Android game detected";
-                package = StardewApkTool.CurrentPackageInfo?.PackageName
-                    ?? "Choose an installed game below";
+                    ? "Stardew Valley · " + report.Version + " · APK layout verified"
+                    : report.Summary;
+                package = report.PackageName.Length == 0
+                    ? "Choose an installed game below"
+                    : report.PackageName;
             }
             catch (Exception ex)
             {
