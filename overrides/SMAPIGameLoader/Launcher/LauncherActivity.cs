@@ -26,10 +26,12 @@ public sealed class LauncherActivity : AppCompatActivity
     public static LauncherActivity Instance { get; private set; } = null!;
     private const int HomeId = 1;
     private const int ModsId = 2;
+    private const int SettingsId = 3;
 
     private FrameLayout _container = null!;
     private View _homePage = null!;
-    private View _modPage = null!;
+    private ModManagerPage _modPage = null!;
+    private View _settingsPage = null!;
     private BottomNavigationView _navigation = null!;
     private int _activePage = HomeId;
 
@@ -49,14 +51,12 @@ public sealed class LauncherActivity : AppCompatActivity
             Finish();
             return;
         }
-        BuildUi();
-        if (!StardewApkTool.IsInstalled)
-            Toast.MakeText(this, "Choose your installed game on the Home screen", ToastLength.Long)?.Show();
+        BuildUi(state?.GetInt("aurora_tab", HomeId) ?? HomeId);
         if (AdbExtraTool.IsClickStartGame(this))
             OnClickStartGame();
     }
 
-    private void BuildUi()
+    private void BuildUi(int restoreTab)
     {
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
         root.SetBackgroundColor(AuroraUi.Background);
@@ -68,9 +68,12 @@ public sealed class LauncherActivity : AppCompatActivity
 
         _homePage = new HomePage(this);
         _modPage = new ModManagerPage(this);
+        _settingsPage = new SettingsPage(this);
         _container.AddView(_homePage);
         _container.AddView(_modPage);
+        _container.AddView(_settingsPage);
         _modPage.Visibility = ViewStates.Gone;
+        _settingsPage.Visibility = ViewStates.Gone;
 
         _navigation = new BottomNavigationView(this);
         _navigation.SetBackgroundColor(AuroraUi.Surface);
@@ -84,6 +87,7 @@ public sealed class LauncherActivity : AppCompatActivity
         _navigation.ItemTextColor = new ColorStateList(states, colors);
         _navigation.Menu.Add(0, HomeId, 0, "Home").SetIcon(Android.Resource.Drawable.IcMenuMyCalendar);
         _navigation.Menu.Add(0, ModsId, 1, "Mods").SetIcon(Android.Resource.Drawable.IcMenuAgenda);
+        _navigation.Menu.Add(0, SettingsId, 2, "Settings").SetIcon(Android.Resource.Drawable.IcMenuPreferences);
         _navigation.ItemSelected += (_, eventArgs) =>
         {
             ShowPage(eventArgs.Item!.ItemId);
@@ -91,29 +95,39 @@ public sealed class LauncherActivity : AppCompatActivity
         };
         root.AddView(_navigation, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MatchParent, AuroraUi.Dp(this, 72)));
-        _navigation.SelectedItemId = HomeId;
-        AuroraUi.AnimateIn(_homePage);
+        _activePage = HomeId;
+        _navigation.SelectedItemId = restoreTab is ModsId or SettingsId ? restoreTab : HomeId;
+        AuroraUi.AnimateIn(_activePage == ModsId ? _modPage :
+            _activePage == SettingsId ? _settingsPage : _homePage);
     }
 
     private void ShowPage(int itemId)
     {
         if (itemId == _activePage) return;
-        var incoming = itemId == ModsId ? _modPage : _homePage;
-        var outgoing = itemId == ModsId ? _homePage : _modPage;
+        var incoming = PageFor(itemId);
+        var outgoing = PageFor(_activePage);
+        if (incoming == outgoing) return;
         outgoing.Animate().Cancel();
         outgoing.Visibility = ViewStates.Gone;
+        outgoing.Alpha = 1f;
         incoming.Visibility = ViewStates.Visible;
         _activePage = itemId;
+        if (itemId == ModsId) _modPage.RefreshMods();
         AuroraUi.AnimateIn(incoming);
     }
 
-    public void OnClickStartGame()
+    private View PageFor(int id) => id switch
     {
-        if (!StardewApkTool.IsInstalled)
-        {
-            Toast.MakeText(this, "Select a compatible installed Stardew Valley first", ToastLength.Long)?.Show();
-            return;
-        }
-        EntryGame.LaunchGameActivity(this);
+        ModsId => _modPage,
+        SettingsId => _settingsPage,
+        _ => _homePage
+    };
+
+    protected override void OnSaveInstanceState(Bundle outState)
+    {
+        outState.PutInt("aurora_tab", _activePage);
+        base.OnSaveInstanceState(outState);
     }
+
+    public void OnClickStartGame() => EntryGame.LaunchGameActivity(this);
 }

@@ -14,6 +14,8 @@ public sealed class HomePage : LinearLayout
     public Button PlayButton { get; }
     public SMAPIInfoCard SmapiCard { get; }
     public GameInfoCard GameInfoCard { get; }
+    private bool _gameReady;
+    private TextView _launchHint = null!;
 
     public HomePage(Context context) : base(context)
     {
@@ -34,7 +36,10 @@ public sealed class HomePage : LinearLayout
         var headline = AuroraUi.Text(context, "Your valley, your way.", 26, AuroraUi.White, true);
         content.AddView(headline, AuroraUi.ItemParams(context, 5));
         var subtitle = AuroraUi.Text(context, "One launcher. All your mods.", 14, AuroraUi.Muted);
-        content.AddView(subtitle, AuroraUi.ItemParams(context, 22));
+        content.AddView(subtitle, AuroraUi.ItemParams(context, 14));
+        content.AddView(AuroraUi.Pill(context, "v0.3  ·  ANDROID PREVIEW", AuroraUi.Mint),
+            new LayoutParams(LayoutParams.WrapContent, LayoutParams.WrapContent)
+            { BottomMargin = AuroraUi.Dp(context, 20) });
 
         var hero = new LinearLayout(context) { Orientation = Orientation.Vertical };
         hero.SetPadding(AuroraUi.Dp(context, 22), AuroraUi.Dp(context, 25),
@@ -60,8 +65,12 @@ public sealed class HomePage : LinearLayout
         AuroraUi.Ripple(PlayButton, AuroraUi.Solid(context, AuroraUi.Mint, 15));
         PlayButton.SetPadding(AuroraUi.Dp(context, 12), AuroraUi.Dp(context, 12),
             AuroraUi.Dp(context, 12), AuroraUi.Dp(context, 12));
+        PlayButton.Enabled = false;
+        PlayButton.Alpha = 0.55f;
         PlayButton.Click += (_, __) => LauncherActivity.Instance.OnClickStartGame();
-        hero.AddView(PlayButton, AuroraUi.ItemParams(context, 3));
+        hero.AddView(PlayButton, AuroraUi.ItemParams(context, 10));
+        _launchHint = AuroraUi.Text(context, "Checking game and SMAPI…", 12, AuroraUi.White);
+        hero.AddView(_launchHint);
         AuroraUi.AddPressAnimation(PlayButton);
 
         var sectionTitle = AuroraUi.Text(context, "YOUR SETUP", 12, AuroraUi.Muted, true);
@@ -80,12 +89,30 @@ public sealed class HomePage : LinearLayout
         AuroraUi.AddPressAnimation(selectButton);
 
         SmapiCard = new SMAPIInfoCard(context);
+        SmapiCard.StatusChanged += UpdatePlayState;
         content.AddView(SmapiCard, AuroraUi.ItemParams(context, 17));
         var footnote = AuroraUi.Text(context,
             "Uses a compatible installed Android game. Does not bypass purchases or game protection.",
             11, AuroraUi.Muted);
         content.AddView(footnote);
         AuroraUi.AnimateIn(hero);
+        GameInfoCard.CheckAsync(ready =>
+        {
+            _gameReady = ready;
+            UpdatePlayState();
+        });
+    }
+
+    private void UpdatePlayState()
+    {
+        var ready = _gameReady && SMAPIInstaller.IsInstalled;
+        PlayButton.Enabled = ready;
+        PlayButton.Alpha = ready ? 1f : 0.55f;
+        _launchHint.Text = !_gameReady
+            ? "Select a compatible Stardew Valley installation below"
+            : !SMAPIInstaller.IsInstalled
+                ? "Install SMAPI Android to enable launch"
+                : "Everything is ready. Have a good day in the valley!";
     }
 
     private void OnChooseGame(object? sender, EventArgs args)

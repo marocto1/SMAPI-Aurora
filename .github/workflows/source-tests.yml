@@ -1,21 +1,33 @@
-name: Source patch checks
+name: Aurora patch validation
 on:
   push:
   pull_request:
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
-  check:
+  source-patch:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
+      - name: Checkout Aurora
         uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify scripts
-        run: python -m py_compile apply_aurora.py compat/compat_core.py tests/test_patch.py
-      - name: Run source patch tests
-        run: python tests/test_patch.py
+      - name: Python compile and mock regression tests
+        run: |
+          python -m py_compile apply_aurora.py compat/compat_core.py tests/test_patch.py
+          python tests/test_patch.py
+      - name: Checkout upstream at tested commit
+        run: |
+          git clone --filter=blob:none https://github.com/NRTnarathip/SMAPILoader.git /tmp/SMAPILoader
+          git -C /tmp/SMAPILoader checkout 092c6864838dd2118d216cb3e03f3c731ad17c08
+      - name: Validate patch against real upstream source
+        run: |
+          python apply_aurora.py /tmp/SMAPILoader --dry-run
+          python apply_aurora.py /tmp/SMAPILoader
+          test -f /tmp/SMAPILoader/SMAPIGameLoader/Launcher/Pages/SettingsPage.cs
+          grep -q '0.3.0' /tmp/SMAPILoader/SMAPIGameLoader/SMAPIGameLoader.csproj
+          grep -q 'CheckAsync' /tmp/SMAPILoader/SMAPIGameLoader/Launcher/GameCardInfo.cs
+          git -C /tmp/SMAPILoader diff --stat

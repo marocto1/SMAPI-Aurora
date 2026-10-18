@@ -9,6 +9,7 @@ namespace SMAPIGameLoader.Launcher;
 
 public sealed class SMAPIInfoCard : CardView
 {
+    public event Action? StatusChanged;
     private readonly TextView _status;
     private readonly TextView _version;
     private readonly TextView _build;
@@ -89,5 +90,6 @@ public sealed class SMAPIInfoCard : CardView
         _install.Text = installed ? "Update SMAPI" : "Install SMAPI";
         _remove.Enabled = installed;
         _remove.Alpha = installed ? 1f : 0.4f;
+        StatusChanged?.Invoke();
     }
 }

@@ -2,12 +2,18 @@ using Android.Content;
 using Android.Graphics;
 using Android.Views;
 using Android.Widget;
+using System;
+using System.Threading.Tasks;
 using AndroidX.CardView.Widget;
 
 namespace SMAPIGameLoader.Launcher;
 
 public sealed class GameInfoCard : CardView
 {
+    private readonly TextView _status;
+    private readonly TextView _detail;
+    private readonly TextView _package;
+
     public GameInfoCard(Context context) : base(context)
     {
         Radius = AuroraUi.Dp(context, 18);
@@ -27,20 +33,46 @@ public sealed class GameInfoCard : CardView
         var title = AuroraUi.Text(context, "Game source", 17, AuroraUi.White, true);
         top.AddView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
 
-        var isReady = StardewApkTool.IsInstalled && StardewApkTool.IsGameVersionSupport;
-        var status = AuroraUi.Text(context, isReady ? "●  READY" : "●  NOT READY", 11,
-            isReady ? AuroraUi.Mint : Color.Rgb(255, 173, 143), true);
-        status.SetPadding(AuroraUi.Dp(context, 10), AuroraUi.Dp(context, 6),
-            AuroraUi.Dp(context, 10), AuroraUi.Dp(context, 6));
-        status.Background = AuroraUi.Solid(context, AuroraUi.SurfaceRaised, 13);
-        top.AddView(status);
+        _status = AuroraUi.Pill(context, "●  CHECKING", AuroraUi.AccentSoft);
+        top.AddView(_status);
 
-        var info = StardewApkTool.CurrentPackageInfo;
-        var version = StardewApkTool.CurrentGameVersion;
-        body.AddView(AuroraUi.Text(context,
-            isReady ? "Stardew Valley  ·  " + version : "No compatible installed game detected",
-            14, AuroraUi.Muted), AuroraUi.ItemParams(context, 6));
-        body.AddView(AuroraUi.Text(context,
-            info?.PackageName ?? "Choose an installed game below", 12, AuroraUi.Muted));
+        _detail = AuroraUi.Text(context, "Checking installed APKs…", 14, AuroraUi.Muted);
+        body.AddView(_detail, AuroraUi.ItemParams(context, 6));
+        _package = AuroraUi.Text(context, "Please wait", 12, AuroraUi.Muted);
+        body.AddView(_package);
+    }
+
+    // APK ZIP inspection is disk I/O; never run it while rendering the UI.
+    public void CheckAsync(Action<bool> completed)
+    {
+        Task.Run(() =>
+        {
+            bool ready = false;
+            string detail;
+            string package;
+            try
+            {
+                ready = StardewApkTool.IsGameVersionSupport;
+                detail = ready
+                    ? "Stardew Valley  ·  " + StardewApkTool.CurrentGameVersion
+                    : "No compatible Android game detected";
+                package = StardewApkTool.CurrentPackageInfo?.PackageName
+                    ?? "Choose an installed game below";
+            }
+            catch (Exception ex)
+            {
+                detail = "Unable to inspect installed game";
+                package = ex.Message;
+            }
+
+            LauncherActivity.Instance.RunOnUiThread(() =>
+            {
+                _status.Text = ready ? "●  READY" : "●  NOT READY";
+                _status.SetTextColor(ready ? AuroraUi.Mint : AuroraUi.Warn);
+                _detail.Text = detail;
+                _package.Text = package;
+                completed(ready);
+            });
+        });
     }
 }

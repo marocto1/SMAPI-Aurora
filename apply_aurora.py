@@ -121,6 +121,16 @@ def plan(repo: Path) -> dict[Path, str]:
     # Validates source code anchors before any changes are made.
     patches = build_patches(repo)
     safe_advanced_patches(repo, patches)
+    # Standalone Aurora package ID, so the original launcher can coexist.
+    project = Path('SMAPIGameLoader/SMAPIGameLoader.csproj')
+    original = (repo / project).read_text(encoding='utf-8-sig')
+    original = replace_once(original,
+        '<ApplicationId>com.companyname.SMAPIGameLoader</ApplicationId>',
+        '<ApplicationId>com.marocto.smapi.aurora</ApplicationId>', str(project))
+    original = replace_once(original,
+        '<ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion>',
+        '<ApplicationDisplayVersion>0.3.0</ApplicationDisplayVersion>', str(project))
+    patches[project] = original
     for overlay in OVERLAY_ROOT.rglob('*.cs'):
         rel = overlay.relative_to(OVERLAY_ROOT)
         patches[rel] = overlay.read_text(encoding='utf-8-sig')

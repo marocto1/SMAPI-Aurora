@@ -1,5 +1,6 @@
 using Android.Content;
 using Android.Content.Res;
+using Android.Provider;
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
@@ -21,6 +22,55 @@ internal static class AuroraUi
     public static readonly Color White = Color.Rgb(248, 249, 255);
     public static readonly Color Muted = Color.Rgb(153, 161, 186);
     public static readonly Color Outline = Color.Rgb(53, 60, 81);
+    public static readonly Color Warn = Color.Rgb(252, 182, 138);
+    private const string SettingsFile = "aurora_appearance";
+    private const string MotionKey = "motion_enabled";
+
+    // Honour both Android's animator scale and the user's explicit preference.
+    public static bool UseMotion(Context context)
+    {
+        var enabled = context.GetSharedPreferences(SettingsFile, FileCreationMode.Private)
+            ?.GetBoolean(MotionKey, true) ?? true;
+        if (!enabled) return false;
+        try
+        {
+            return Settings.Global.GetFloat(context.ContentResolver!, "animator_duration_scale", 1f) > 0f;
+        }
+        catch { return enabled; }
+    }
+
+    public static void SetMotion(Context context, bool enabled)
+    {
+        context.GetSharedPreferences(SettingsFile, FileCreationMode.Private)
+            ?.Edit()?.PutBoolean(MotionKey, enabled)?.Apply();
+    }
+
+    public static TextView Section(Context context, string heading)
+    {
+        var text = Text(context, heading.ToUpperInvariant(), 11, AccentSoft, true);
+        text.LetterSpacing = 0.1f;
+        return text;
+    }
+
+    public static TextView Pill(Context context, string label, Color color)
+    {
+        var text = Text(context, label, 11, color, true);
+        text.SetPadding(Dp(context, 11), Dp(context, 7), Dp(context, 11), Dp(context, 7));
+        text.Background = Solid(context, SurfaceRaised, 15, true);
+        return text;
+    }
+
+    public static Button Action(Context context, string label, bool highlighted = false)
+    {
+        var button = new Button(context) { Text = label };
+        button.SetAllCaps(false);
+        button.SetTextSize(Android.Util.ComplexUnitType.Sp, 14);
+        button.SetTypeface(null, TypefaceStyle.Bold);
+        button.SetTextColor(highlighted ? Background : White);
+        Ripple(button, Solid(context, highlighted ? Mint : SurfaceRaised, 15, !highlighted));
+        AddPressAnimation(button);
+        return button;
+    }
 
     public static int Dp(Context context, float value) =>
         (int)(value * context.Resources!.DisplayMetrics!.Density + 0.5f);
@@ -66,11 +116,17 @@ internal static class AuroraUi
 
     public static void AnimateIn(View view)
     {
-        view.Alpha = 0f;
-        view.TranslationY = Dp(view.Context!, 12);
         view.Animate().Cancel();
+        if (!UseMotion(view.Context!))
+        {
+            view.Alpha = 1f;
+            view.TranslationY = 0f;
+            return;
+        }
+        view.Alpha = 0f;
+        view.TranslationY = Dp(view.Context!, 16);
         view.Animate().Alpha(1f).TranslationY(0f)
-            .SetDuration(240)
+            .SetDuration(290)
             .SetInterpolator(new DecelerateInterpolator())
             .Start();
     }
@@ -79,7 +135,7 @@ internal static class AuroraUi
     {
         view.Touch += (_, args) =>
         {
-            if (args.Event == null) return;
+            if (args.Event == null || !UseMotion(view.Context!)) return;
             switch (args.Event.Action)
             {
                 case MotionEventActions.Down:

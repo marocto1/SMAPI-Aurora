@@ -23,6 +23,8 @@ internal sealed class ModManagerPage : LinearLayout
     private readonly TextView _empty;
     private readonly RecyclerView _list;
     private string _filter = "";
+    private int _stateFilter; // 0 = all, 1 = enabled, 2 = disabled
+    private readonly Button[] _filterButtons = new Button[3];
 
     public FloatingActionButton InstallFab { get; }
 
@@ -53,7 +55,27 @@ internal sealed class ModManagerPage : LinearLayout
         search.SetPadding(AuroraUi.Dp(context, 16), AuroraUi.Dp(context, 9),
             AuroraUi.Dp(context, 16), AuroraUi.Dp(context, 9));
         search.Background = AuroraUi.Solid(context, AuroraUi.SurfaceRaised, 15, true);
-        header.AddView(search, AuroraUi.ItemParams(context));
+        header.AddView(search, AuroraUi.ItemParams(context, 13));
+
+        var filters = new LinearLayout(context) { Orientation = Orientation.Horizontal };
+        string[] filterNames = { "All", "Enabled", "Disabled" };
+        for (int i = 0; i < filterNames.Length; i++)
+        {
+            int selection = i;
+            var chip = AuroraUi.Action(context, filterNames[i]);
+            chip.SetPadding(AuroraUi.Dp(context, 5), 0, AuroraUi.Dp(context, 5), 0);
+            _filterButtons[i] = chip;
+            filters.AddView(chip, new LayoutParams(0, AuroraUi.Dp(context, 45), 1f)
+            { RightMargin = i == 2 ? 0 : AuroraUi.Dp(context, 7) });
+            chip.Click += (_, __) =>
+            {
+                _stateFilter = selection;
+                UpdateFilterButtons();
+                ApplyFilter();
+            };
+        }
+        header.AddView(filters);
+        UpdateFilterButtons();
         search.TextChanged += (_, __) =>
         {
             _filter = search.Text?.Trim() ?? "";
@@ -96,7 +118,7 @@ internal sealed class ModManagerPage : LinearLayout
         RefreshMods();
     }
 
-    private void RefreshMods()
+    public void RefreshMods()
     {
         _allMods.Clear();
         try
@@ -116,15 +138,30 @@ internal sealed class ModManagerPage : LinearLayout
     private void ApplyFilter()
     {
         _visibleMods.Clear();
-        foreach (var mod in _allMods)
+        foreach (var mod in _allMods.OrderBy(m => m.modName, StringComparer.OrdinalIgnoreCase))
         {
-            if (_filter.Length == 0 || mod.modName.Contains(_filter, StringComparison.OrdinalIgnoreCase))
+            var matchesText = _filter.Length == 0
+                || mod.modName.Contains(_filter, StringComparison.OrdinalIgnoreCase);
+            var matchesState = _stateFilter == 0 || (mod.Enabled == (_stateFilter == 1));
+            if (matchesText && matchesState)
                 _visibleMods.Add(mod);
         }
         _adapter.NotifyDataSetChanged();
         _empty.Visibility = _visibleMods.Count == 0 ? ViewStates.Visible : ViewStates.Gone;
         _list.Visibility = _visibleMods.Count == 0 ? ViewStates.Gone : ViewStates.Visible;
         RefreshCounts();
+    }
+
+    private void UpdateFilterButtons()
+    {
+        for (int i = 0; i < _filterButtons.Length; i++)
+        {
+            var selected = i == _stateFilter;
+            var button = _filterButtons[i];
+            button.SetTextColor(selected ? AuroraUi.Background : AuroraUi.Muted);
+            AuroraUi.Ripple(button, AuroraUi.Solid(_context,
+                selected ? AuroraUi.AccentSoft : AuroraUi.SurfaceRaised, 13, !selected));
+        }
     }
 
     private void RefreshCounts()
@@ -134,7 +171,7 @@ internal sealed class ModManagerPage : LinearLayout
         _counts.Text = $"{_allMods.Count} installed  ·  {enabled} enabled  ·  {disabled} disabled";
     }
 
-    private void OnToggledMod(ModInfo mod) => RefreshCounts();
+    private void OnToggledMod(ModInfo mod) => ApplyFilter();
 
     private void OnClickedMod(ModInfo mod, View anchor)
     {

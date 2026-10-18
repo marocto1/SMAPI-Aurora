@@ -11,6 +11,7 @@ import apply_aurora as aurora
 def fixture() -> dict[str, str]:
     return {
       'SMAPILoader.sln': 'Microsoft Visual Studio Solution File',
+      'SMAPIGameLoader/SMAPIGameLoader.csproj': '<Project><ApplicationId>com.companyname.SMAPIGameLoader</ApplicationId><ApplicationDisplayVersion>1.1.7</ApplicationDisplayVersion></Project>',
       'SMAPIGameLoader/AndroidManifest.xml': '<manifest>\n\t<queries>\n\t</queries>\n</manifest>',
       'SMAPIGameLoader/Launcher/LauncherActivity.cs': '''using System;
 class LauncherActivity {
@@ -110,9 +111,13 @@ def run():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding='utf-8')
         patch = aurora.plan(repo)
-        assert len(patch) == 15, len(patch)
+        assert len(patch) == 17, len(patch)
         assert 'Choose installed game' in patch[Path('SMAPIGameLoader/Launcher/Pages/HomePage.cs')]
         assert 'SMAPI Aurora' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
+        assert 'SettingsPage' in patch[Path('SMAPIGameLoader/Launcher/LauncherActivity.cs')]
+        assert 'Smooth animations' in patch[Path('SMAPIGameLoader/Launcher/Pages/SettingsPage.cs')]
+        assert 'CheckAsync' in patch[Path('SMAPIGameLoader/Launcher/GameCardInfo.cs')]
+        assert '0.3.0' in patch[Path('SMAPIGameLoader/SMAPIGameLoader.csproj')]
         assert 'ManualResetEventSlim' in patch[Path('SMAPIGameLoader/Tool/TaskTool.cs')]
         assert 'destination.StartsWith(targetRoot' in patch[Path('SMAPIGameLoader/Launcher/SMAPIInstaller.cs')]
         assert 'GameApkPaths' in patch[Path('SMAPIGameLoader/Tool/StardewApkTool.cs')]
