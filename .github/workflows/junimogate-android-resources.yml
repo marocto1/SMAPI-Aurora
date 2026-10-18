@@ -1,0 +1,45 @@
+name: Aurora JunimoGate Android resource compiler
+
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/**'
+      - '.github/workflows/junimogate-android-resources.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-ui-resources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load pinned JunimoGate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+      - name: Compile actual Android UI resources using AAPT2
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?Missing Android SDK on runner}"
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt2 | sort -V | tail -1)"
+          if [[ -z "$AAPT2" || ! -x "$AAPT2" ]]; then
+            echo "::error::Android aapt2 binary unavailable"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/aurora-resources"
+          "$AAPT2" compile --dir .aurora-build/JunimoGate/src/JunimoGate.App/Resources \
+            -o "$RUNNER_TEMP/aurora-resources/compiled-resources.zip"
+          test -s "$RUNNER_TEMP/aurora-resources/compiled-resources.zip"
+          unzip -l "$RUNNER_TEMP/aurora-resources/compiled-resources.zip" | grep -E 'values-ru|aurora_mark|aurora_backdrop'
+          echo "PASS: Android AAPT2 compiled Aurora resources with Russian locale" >> "$GITHUB_STEP_SUMMARY"
+      - name: Validate safe application overlay
+        run: |
+          python3 -m unittest discover -s junimogate-bridge/tests -v
+          echo "AAPT2 compilation is a resource check; it is not the full Android/SMAPI APK." >> "$GITHUB_STEP_SUMMARY"
