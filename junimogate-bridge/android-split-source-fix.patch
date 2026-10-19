@@ -1,0 +1,53 @@
+diff --git a/src/JunimoGate.Android/AndroidPackageInstallationSnapshotProvider.cs b/src/JunimoGate.Android/AndroidPackageInstallationSnapshotProvider.cs
+--- a/src/JunimoGate.Android/AndroidPackageInstallationSnapshotProvider.cs
++++ b/src/JunimoGate.Android/AndroidPackageInstallationSnapshotProvider.cs
+@@ -71,17 +71,36 @@ public sealed class AndroidPackageInstallationSnapshotProvider : IPackageInstal
+             CreateSourceSnapshot(applicationInfo.SourceDir, isBase: true, splitName: null),
+         };
+-        var splitNames = packageInfo.SplitNames;
++        // ApplicationInfo.splitSourceDirs is indexed by *ApplicationInfo.splitNames*
++        // (Android API 26+), not by PackageInfo.splitNames. On some Android 16
++        // installations PackageInfo.splitNames is null / incomplete even though
++        // the ApplicationInfo arrays are complete. Keeping the two arrays from
++        // the same Android record preserves their pairing without guessing
++        // filesystem names or relaxing any game signature / package checks.
+         var splitSourceDirs = applicationInfo.SplitSourceDirs;
+-        if (splitNames is null && splitSourceDirs is null)
++        var applicationSplitNames = applicationInfo.SplitNames;
++        var packageSplitNames = packageInfo.SplitNames;
++        if (splitSourceDirs is null || splitSourceDirs.Count == 0)
+         {
++            if (applicationSplitNames is { Count: > 0 } ||
++                packageSplitNames is { Count: > 0 })
++            {
++                throw new InvalidOperationException(
++                    "Split APK source paths are missing despite named splits.");
++            }
+             return sources;
+         }
+ 
+-        if (splitNames is null ||
+-            splitSourceDirs is null ||
+-            splitNames.Count != splitSourceDirs.Count)
++        // Fallback to PackageInfo ONLY when ApplicationInfo omits splitNames,
++        // and only if Android reports exactly one name for every split source.
++        // Never fabricate split names from filesystem paths.
++        var splitNames = applicationSplitNames;
++        if (splitNames is null || splitNames.Count != splitSourceDirs.Count)
++        {
++            if (packageSplitNames is not null &&
++                packageSplitNames.Count == splitSourceDirs.Count)
++            {
++                splitNames = packageSplitNames;
++            }
++        }
++
++        if (splitNames is null || splitNames.Count != splitSourceDirs.Count)
+         {
+-            throw new InvalidOperationException("Split APK names and source paths are not aligned.");
++            throw new InvalidOperationException(
++                $"Split APK names and source paths are not aligned: " +
++                $"applicationNames={applicationSplitNames?.Count ?? -1}, " +
++                $"packageNames={packageSplitNames?.Count ?? -1}, " +
++                $"sourceDirs={splitSourceDirs.Count}.");
+         }
