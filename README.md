@@ -1,3 +1,19 @@
+## SMAPI Aurora v0.8.5 — user-installed Stardew Valley compatibility (experimental QA)
+
+[**Download the v0.8.5 Android ARM64 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.5-installed-game-qa) · [GitHub Actions build & APK payload audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39199603931)
+
+This experimental release **rebuilds and replaces exactly JunimoGate.Core's managed ARM64 ELF** with a source-level policy that accepts Android-verified **single-signer** installed `com.chucklefish.stardewvalley` even when the signer differs from the tested Play signer. It retains the upstream package-name boundary, PackageManager-installed identity, snapshot revalidation, APK source ZIP hashing, ABI checks, original GameHost/SMAPI and v0.8.1 Android 16 split-source repair. The launch screen remains simplified as in v0.8.4.
+
+**Scope and limitations:**
+
+- **PASS:** .NET 9 policy source compiles; signer-policy smoke tests pass; the repacked APK passes its integrity audit (only `lib/arm64-v8a/lib_JunimoGate.Core.dll.so` and `AndroidManifest.xml` changed). No game binaries are bundled.
+- **UNVERIFIED:** launch and modded gameplay on the affected Android 16 device. Other incompatibilities may remain, including source layout or version differences. No broad claim is made about every third-party APK or other Android package names.
+- Other Android signing protections still apply. The APK comes from a user-selected Android installation; an unknown signer does **not** guarantee authenticity or safety. Avoid untrusted game files.
+- **Automatic Drive download remains unconfigured on a fresh install:** the exact private Drive URL was not recoverable and was not embedded in a public APK. This is not required when the game is already installed. A separately configured source is required for optional download/reinstall.
+- **Launcher update caveat:** experimental APKs use new test signing keys each release; Android may block installing v0.8.5 over older Aurora/JunimoGate packages with the same ID. Back up saves, mods and app-private data before any uninstall. There is not yet a production-grade stable update-signing process.
+
+Source: [local installed signer patch](junimogate-bridge/allow_installed_signer.py), [Core ELF repacker](junimogate-bridge/version-manager/rewrap_managed_core_elf.py), [packaging workflow](.github/workflows/aurora-v085-installed-game-qa.yml).
+
 ## SMAPI Aurora v0.8.4 — comfort launch (experimental QA)
 
 [**Aurora v0.8.4 APK / release**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.4-comfort-launch-qa)
