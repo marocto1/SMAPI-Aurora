@@ -16,10 +16,10 @@ POLICY = Path("src/JunimoGate.Core/KnownGameCertificate.cs")
 
 OLD_ENUM = """    /// <summary>The package certificate is unrelated to the certificate tested by JunimoGate.</summary>
     Unrecognized,"""
-NEW_ENUM = """    /// <summary>A user-installed Android-verified single-signer Stardew Valley package.</summary>
-    AuroraUserInstalled,
+NEW_ENUM = OLD_ENUM + """
 
-""" + OLD_ENUM
+    /// <summary>A user-installed Android-verified single-signer Stardew Valley package.</summary>
+    AuroraUserInstalled,"""
 
 OLD_ALLOWED = """        Status is GameCertificateStatus.KnownTested or GameCertificateStatus.KnownTestedAfterRotation;"""
 NEW_ALLOWED = """        Status is GameCertificateStatus.KnownTested or GameCertificateStatus.KnownTestedAfterRotation
