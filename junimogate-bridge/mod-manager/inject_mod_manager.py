@@ -15,6 +15,7 @@ ANDROID = "http://schemas.android.com/apk/res/android"
 A = "{" + ANDROID + "}"
 LAUNCHER = "org.junimogate.app.MainActivity"
 OVERVIEW = "org.junimogate.aurora.AuroraModOverviewActivity"
+WORKSHOP = "org.junimogate.aurora.AuroraWorkshopActivity"
 SHORTCUT_XML = """<?xml version="1.0" encoding="utf-8"?>
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut android:shortcutId="aurora-mod-overview"
@@ -26,12 +27,23 @@ SHORTCUT_XML = """<?xml version="1.0" encoding="utf-8"?>
             android:targetPackage="org.junimogate.app"
             android:targetClass="org.junimogate.aurora.AuroraModOverviewActivity" />
     </shortcut>
+    <shortcut android:shortcutId="aurora-nexus-workshop"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/aurora_workshop_shortcut"
+        android:shortcutLongLabel="@string/aurora_workshop_shortcut_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="org.junimogate.app"
+            android:targetClass="org.junimogate.aurora.AuroraWorkshopActivity" />
+    </shortcut>
 </shortcuts>
 """
 STRINGS_XML = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="aurora_mod_shortcut">Моды Aurora</string>
     <string name="aurora_mod_shortcut_long">Обзор модов и зависимостей</string>
+    <string name="aurora_workshop_shortcut">Workshop</string>
+    <string name="aurora_workshop_shortcut_long">Nexus Mods · Workshop</string>
 </resources>
 """
 
@@ -52,7 +64,7 @@ def patch(root: Path) -> None:
     main = [a for a in app.findall("activity") if a.get(A + "name") == LAUNCHER]
     if len(main) != 1:
         raise ValueError("Original SMAPI MainActivity missing")
-    if any(a.get(A + "name") == OVERVIEW for a in app.findall("activity")):
+    if any(a.get(A + "name") in (OVERVIEW, WORKSHOP) for a in app.findall("activity")):
         raise ValueError("Already patched; refusing duplicate activity")
     launcher_filters = [
         i for i in main[0].findall("intent-filter")
@@ -70,7 +82,12 @@ def patch(root: Path) -> None:
     activity.set(A + "exported", "true")
     activity.set(A + "label", "@string/aurora_mod_shortcut")
     activity.set(A + "theme", "@android:style/Theme.Material.NoActionBar")
-    # Optional external launcher action; no MAIN/LAUNCHER filter and no second app icon.
+    workshop = ET.SubElement(app, "activity")
+    workshop.set(A + "name", WORKSHOP)
+    workshop.set(A + "exported", "true")
+    workshop.set(A + "label", "@string/aurora_workshop_shortcut")
+    workshop.set(A + "theme", "@android:style/Theme.Material.NoActionBar")
+    # Both extra Activities are launcher app-shortcut destinations, not MAIN launchers.
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
     xml_dir = root / "res" / "xml"
@@ -86,15 +103,15 @@ def patch(root: Path) -> None:
 
     yml = apktool.read_text(encoding="utf-8")
     yml, count = re.subn(r"(?m)^(\s*versionCode:\s*)([^\n]+)$",
-                         lambda m: m[1] + "22", yml, count=1)
+                         lambda m: m[1] + "23", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionCode")
     yml, count = re.subn(r"(?m)^(\s*versionName:\s*)([^\n]+)$",
-                         lambda m: m[1] + "0.9.1-mod-manager-qa2", yml, count=1)
+                         lambda m: m[1] + "0.9.3-workshop-qa", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionName")
     apktool.write_text(yml, encoding="utf-8")
-    print("PASS: original launcher preserved, read-only overview shortcut injected")
+    print("PASS: original launcher preserved, read-only manager and Nexus Workshop shortcuts injected")
 
 
 if __name__ == "__main__":
