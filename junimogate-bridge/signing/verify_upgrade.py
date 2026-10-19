@@ -22,10 +22,17 @@ def signing_ids(apk: Path, apksigner: str) -> tuple[str, ...]:
     if not apk.is_file():
         raise FileNotFoundError(apk)
     output = _capture([apksigner, "verify", "--verbose", "--print-certs", str(apk)])
-    digest = re.findall(
-        r"(?im)^Signer #\d+ certificate SHA-256 digest:\s*([a-f0-9]{64})\s*$",
-        output,
-    )
+    # Android build-tools vary in whitespace, casing and colon separators.
+    digest = []
+    for line in output.splitlines():
+        if not re.search(r"Signer\\s*#\\d+.*certificate\\s+SHA-256\\s+digest", line, re.I):
+            continue
+        parts = line.split(":", 1)
+        if len(parts) != 2:
+            continue
+        candidate = parts[1].strip().lower().replace(":", "")
+        if re.fullmatch(r"[a-f0-9]{64}", candidate):
+            digest.append(candidate)
     if not digest:
         raise ValueError("No verified Android signing identity")
     return tuple(sorted(set(x.lower() for x in digest)))
