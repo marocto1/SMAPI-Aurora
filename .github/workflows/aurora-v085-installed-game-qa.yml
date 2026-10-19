@@ -1,11 +1,5 @@
 name: Aurora v0.8.5 installed-game SMAPI Core compatibility QA
 on:
-  push:
-    paths:
-      - 'junimogate-bridge/allow_installed_signer.py'
-      - 'junimogate-bridge/version-manager/rewrap_managed_core_elf.py'
-      - 'junimogate-bridge/version-manager/bump_repair_version.py'
-      - '.github/workflows/aurora-v085-installed-game-qa.yml'
   workflow_dispatch:
 
 permissions:
