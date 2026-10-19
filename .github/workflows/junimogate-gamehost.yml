@@ -1,0 +1,122 @@
+name: Aurora JunimoGate GameHost build
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/**'
+      - '.github/workflows/junimogate-gamehost.yml'
+  workflow_dispatch:
+    inputs:
+      build_full:
+        description: "Build complete Android GameHost with private mobile compile references"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  gamehost-source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Private reference ZIP security tests
+        run: python3 -m unittest discover -s junimogate-bridge/tests -v
+      - name: Validate pinned GameHost/SMAPI source dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --check
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+          python3 junimogate-bridge/check_gamehost_contract.py .aurora-build/JunimoGate
+          echo "GameHost source contract passed; this job does not build an APK." >> "$GITHUB_STEP_SUMMARY"
+  full-android-gamehost:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_full
+    needs: gamehost-source-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require private reference archive and digest
+        env:
+          REF_URL: ${{ secrets.AURORA_JUNIMO_GAME_REFS_URL }}
+          REF_SHA256: ${{ secrets.AURORA_JUNIMO_GAME_REFS_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$REF_URL" || ! "$REF_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo "::error::Full GameHost compilation blocked: configure private mobile game DLL archive URL and SHA256 secrets. Desktop references are not compatible with Android."
+            exit 1
+          fi
+      - name: Fetch pinned JunimoGate and SMAPI submodule
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/leontismaro/JunimoGate.git .aurora-build/JunimoGate
+          git -C .aurora-build/JunimoGate checkout 029eafed917ae853d6c0a59330ee273524168296
+          git -C .aurora-build/JunimoGate submodule update --init --recursive
+          python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
+          python3 junimogate-bridge/check_gamehost_contract.py .aurora-build/JunimoGate
+      - name: SHA256-verify and stage private compile-only game DLLs
+        env:
+          REF_URL: ${{ secrets.AURORA_JUNIMO_GAME_REFS_URL }}
+          REF_SHA256: ${{ secrets.AURORA_JUNIMO_GAME_REFS_SHA256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 2 --silent --show-error --max-time 300 \
+            --output "$RUNNER_TEMP/aurora-game-private.zip" "$REF_URL"
+          printf '%s  %s\n' "$REF_SHA256" "$RUNNER_TEMP/aurora-game-private.zip" | sha256sum --check --status
+          python3 junimogate-bridge/verify_game_refs.py \
+            "$RUNNER_TEMP/aurora-game-private.zip" --target "$RUNNER_TEMP/aurora-game-references"
+          rm -f "$RUNNER_TEMP/aurora-game-private.zip"
+          echo "JUNIMOGATE_GAME_REFERENCE_DIR=$RUNNER_TEMP/aurora-game-references" >> "$GITHUB_ENV"
+      - name: Bootstrap pinned Android and open-source native libraries
+        working-directory: .aurora-build/JunimoGate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./build/bootstrap-android.sh
+          ./build/build-monogame-android.sh
+      - name: Compile actual SMAPI GameHost and Android APK
+        working-directory: .aurora-build/JunimoGate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./build/build-android.sh Release app
+      - name: Audit APK signing, launcher identity and game payload exclusion
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=.aurora-build/JunimoGate
+          APK="$(find "$ROOT/src/JunimoGate.App/bin/Release/net9.0-android35.0/android-arm64" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          AAPT="$ROOT/.toolchains/android-sdk/build-tools/35.0.0/aapt"
+          APKSIGNER="$ROOT/.toolchains/android-sdk/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" > "$RUNNER_TEMP/aurora-badging.txt"
+          grep -q "package: name='com.marocto.smapi.aurora.jg'" "$RUNNER_TEMP/aurora-badging.txt"
+          grep -q "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-badging.txt"
+          "$APKSIGNER" verify --verbose "$APK"
+          unzip -Z1 "$APK" > "$RUNNER_TEMP/apk-entries.txt"
+          if grep -Ei '(^|/)(StardewValley(\.GameData)?|BmFont|Lidgren\.Network|xTile)\.dll$' "$RUNNER_TEMP/apk-entries.txt"; then
+            echo "::error::Commercial game DLL in APK; publication blocked."
+            exit 1
+          fi
+          test -s "$ROOT/LICENSE" && test -s "$ROOT/LICENSE-EXCEPTION"
+          test -s "$ROOT/THIRD-PARTY-NOTICES.md"
+          mkdir -p "$RUNNER_TEMP/aurora-qa"
+          cp "$APK" "$RUNNER_TEMP/aurora-qa/SMAPI-Aurora-GameHost-v0.7.0-UNVERIFIED-arm64.apk"
+          (cd "$RUNNER_TEMP/aurora-qa" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Compiled unsigned-for-production Android GameHost QA APK; not device tested." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-GameHost-v0.7.0-UNVERIFIED-arm64
+          path: ${{ runner.temp }}/aurora-qa/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Clean private game compilation files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/aurora-game-references"
+          rm -f "$RUNNER_TEMP/aurora-game-private.zip"
