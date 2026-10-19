@@ -1,3 +1,9 @@
+## ⚠️ Aurora v0.8.8 phone boot failure — v0.8.9 experimental rollback
+
+**The user reported that the Aurora application itself closes before showing the home screen**, so v0.8.8 must not be presented as usable on that phone. [Aurora v0.8.9 Boot Recovery QA](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.9-boot-recovery-qa) restores the **byte-identical original pre-Cecil JunimoGate.App.dll.so from v0.8.6**; it keeps the original native MainActivity launcher, SMAPI/GameHost runtime, patched Core and Android 16 fix intact. This isolates the risky .NET metadata edit made in v0.8.7. [Package verification CI passed](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39208602410). **The on-device fix and actual SMAPI/mod gameplay are not yet confirmed.**
+
+The custom `Настройки версий` button in original Settings is temporarily unavailable in v0.8.9; native reimplementation should happen only after reliable device startup. New QA signing keys may block installing over earlier versions; **back up launcher app-private mods/settings and game saves before uninstalling anything**. Do not uninstall Stardew Valley itself. No USB tools are required for routine troubleshooting.
+
 ## SMAPI Aurora v0.8.8 — original SMAPI home restored (Android ARM64 QA)
 
 [**Download v0.8.8 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.8-native-home-qa) · [Native launcher and payload integrity build](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39203867578).
