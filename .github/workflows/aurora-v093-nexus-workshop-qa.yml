@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s junimogate-bridge/mod-manager -p 'test_*.py' -v
-          SOURCE=junimogate-bridge/mod-manager/AuroraModOverviewActivity.java junimogate-bridge/mod-manager/AuroraWorkshopActivity.java
+          SOURCE=junimogate-bridge/mod-manager/AuroraModOverviewActivity.java
           WORKSHOP=junimogate-bridge/mod-manager/AuroraWorkshopActivity.java
           test -s "$WORKSHOP"
           grep -Fq 'https://api.nexusmods.com/' "$WORKSHOP"
