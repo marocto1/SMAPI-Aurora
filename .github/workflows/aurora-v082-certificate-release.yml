@@ -1,0 +1,52 @@
+name: Publish Aurora v0.8.2 certificate diagnostics QA APK
+on:
+  push:
+    paths:
+      - '.github/workflows/aurora-v082-certificate-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact passing v0.8.2 build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/published"
+          gh run download 39195297699 --repo "${{ github.repository }}" \
+            --name SMAPI-Aurora-v0.8.2-Certificate-Diagnostics-QA \
+            --dir "$RUNNER_TEMP/published"
+          APK="$RUNNER_TEMP/published/SMAPI-Aurora-v0.8.2-Certificate-Check-arm64-QA.apk"
+          echo "20a6793a3eb6f18200229fd0b73a47995feac3fd293e79daffda866cb627389b  $APK" | sha256sum --check
+          python3 - "$APK" <<'PY'
+          import zipfile,sys
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              names=set(z.namelist())
+              assert z.testzip() is None
+              for name in ("classes3.dex",
+                           "lib/arm64-v8a/lib_JunimoGate.Android.dll.so",
+                           "lib/arm64-v8a/lib_JunimoGate.GameHost.dll.so",
+                           "assets/smapi-managed/StardewModdingAPI.dll"):
+                  assert name in names, name
+              assert not any(n.lower().endswith('/stardewvalley.dll') for n in names)
+          PY
+      - name: Publish signed QA APK, not claimed functional with unknown-signed game
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v0.8.2-certificate-diagnostics-qa \
+            "$RUNNER_TEMP/published/SMAPI-Aurora-v0.8.2-Certificate-Check-arm64-QA.apk" \
+            "$RUNNER_TEMP/published/SHA256SUMS.txt" \
+            --repo "${{ github.repository }}" --target "$GITHUB_SHA" \
+            --title "SMAPI Aurora v0.8.2 — installed game certificate diagnostics (QA)" \
+            --notes-file junimogate-bridge/CERTIFICATE_QA_V082.md \
+            --prerelease
