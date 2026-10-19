@@ -1,5 +1,30 @@
 # Aurora Game Versions — implementation scope
 
+## 1.6.15.3 build 245 — verified user-owned APKS sample (19 October 2026)
+
+The user provided a 299,297,288-byte `.apks` archive. The archive's ZIP CRCs passed.
+Three entries are present; no additional files:
+
+| Component | Bytes | SHA-256 |
+|---|---:|---|
+| `base.apk` | 4,858,693 | `763c2dc5681ec8f079d0b8be590b77d12c76027769ccef957f3ae4357c120837` |
+| `split_config.arm64_v8a.apk` | 53,857,797 | `efa488b4ba5d5bead3924276a565eb992f022e11e03c7688b6921a484612eeb3` |
+| `split_content.apk` | 361,158,047 | `a90797b428249e040ecfc724168ba1310858855990136b5f813da6d456872d25` |
+
+Whole `.apks` SHA-256: `f340c6a40fe545e79b44e65f1214b74367cea5bc3e47bca372009551411a27d2`.
+
+These three component hashes exactly match the **Google Play Android test sample** listed in
+[JunimoGate's game-discovery acceptance document](https://github.com/leontismaro/JunimoGate/blob/main/docs/game-discovery-result.md).
+That is strong structural provenance evidence; it does not by itself prove the user's APK signatures, license status,
+actual SMAPI game launch, or ability to install on a given handset.
+
+The source menu has a version card for **1.6.15.3 build 245 / ARM64** and allows the user to save **their own private Drive download link** in Android `SharedPreferences`; no commercial APK or public download URL is tracked in this repository. On selecting the source it opens the user's supplied HTTPS Google Drive link in a browser. Drive may require the user to confirm download or authenticate; Aurora does not claim background downloads.
+
+A downloaded `.apks` file can be selected via Android's document picker. The `AuroraSplitApkInstaller.cs` path stages all **three** components with `PackageInstaller.Session`, checks their expected sizes and SHA256 hashes while streaming, and waits for Android's package-install confirmation. It does not bypass package names, signature identities, downgrade protection or licensing checks. This is source-only until the entire host can be compiled and tested on device; build and resource tests are not gameplay validation.
+
+Important: this format is *not* installable using the ordinary single-APK Android `ACTION_VIEW` intent; a split-package installer session is required. Keep backups and sufficient storage (around 1 GB during install).
+
+
 ## Stage 1 — implemented in pinned Android *source* overlay
 
 The source overlay `junimogate-bridge/game_version_ui.py` adds a **Stardew Valley versions** button to Aurora's Home screen, with:
@@ -7,6 +32,7 @@ The source overlay `junimogate-bridge/game_version_ui.py` adds a **Stardew Valle
 1. **Get/update from Google Play** — launches the Android market app for `com.chucklefish.stardewvalley`, falling back to the official HTTPS Google Play listing. Google Play decides which version to deliver to the device; this is not a specific-version binary download.
 2. **Choose APK on this phone** — launches Android's system document picker and, after a warning and explicit approval, offers to open the standard Android package installer. Installation, signing checks and unknown-source permissions remain Android-controlled. It does **not** extract, mirror, rewrite, silently install, or distribute paid game APKs.
 3. **SMAPI compatibility information** — explains the need for original package/signing identity, the distinction between APK and split APK sets, and that version numbers alone are not enough to certify mod compatibility.
+4. **Known version 1.6.15.3 (245)** — personal Drive link slot and SHA256-bound split-APKS install preparation, always subject to Android system install approval.
 
 The source patch adds `REQUEST_INSTALL_PACKAGES` to Aurora's Android manifest solely for **user-initiated local APK installation**. Official Google Play distribution policies may restrict such permissions. Review publishing policy before offering the modified app via Play.
 
