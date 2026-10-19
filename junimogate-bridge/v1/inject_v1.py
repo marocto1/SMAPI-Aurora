@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+"""Wire Aurora native read-only Mod Overview into an existing decoded v0.8.9 APK.
+
+Primary original Xamarin/SMAPI launcher stays unchanged. Static app shortcut
+("long press Aurora icon" -> "Моды") opens the optional read-only native view.
+All actual installs, enables, deletes and group edits remain on JunimoGate's
+original fully transactional Mods/Groups implementation.
+"""
+import argparse
+from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
+
+ANDROID = "http://schemas.android.com/apk/res/android"
+A = "{" + ANDROID + "}"
+LAUNCHER = "org.junimogate.app.MainActivity"
+OVERVIEW = "org.junimogate.aurora.AuroraModOverviewActivity"
+WORKSHOP = "org.junimogate.aurora.AuroraWorkshopActivity"
+BACKUP = "org.junimogate.aurora.AuroraBackupActivity"
+SHORTCUT_XML = """<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="aurora-mod-overview"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/aurora_mod_shortcut"
+        android:shortcutLongLabel="@string/aurora_mod_shortcut_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="org.junimogate.app"
+            android:targetClass="org.junimogate.aurora.AuroraModOverviewActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="aurora-nexus-workshop"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/aurora_workshop_shortcut"
+        android:shortcutLongLabel="@string/aurora_workshop_shortcut_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="org.junimogate.app"
+            android:targetClass="org.junimogate.aurora.AuroraWorkshopActivity" />
+    </shortcut>
+</shortcuts>
+"""
+STRINGS_XML = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aurora_mod_shortcut">Моды Aurora</string>
+    <string name="aurora_mod_shortcut_long">Обзор модов и зависимостей</string>
+    <string name="aurora_workshop_shortcut">Workshop</string>
+    <string name="aurora_workshop_shortcut_long">Nexus Mods · Workshop</string>
+</resources>
+"""
+
+
+def patch(root: Path) -> None:
+    manifest = root / "AndroidManifest.xml"
+    apktool = root / "apktool.yml"
+    if not manifest.is_file() or not apktool.is_file():
+        raise FileNotFoundError("Decoded APK files missing")
+    ET.register_namespace("android", ANDROID)
+    tree = ET.parse(manifest)
+    package = tree.getroot()
+    if package.tag != "manifest" or package.get("package") != "org.junimogate.app":
+        raise ValueError("Unexpected Android package")
+    app = package.find("application")
+    if app is None:
+        raise ValueError("Android application missing")
+    main = [a for a in app.findall("activity") if a.get(A + "name") == LAUNCHER]
+    if len(main) != 1:
+        raise ValueError("Original SMAPI MainActivity missing")
+    if any(a.get(A + "name") in (OVERVIEW, WORKSHOP, BACKUP) for a in app.findall("activity")):
+        raise ValueError("Already patched; refusing duplicate activity")
+    launcher_filters = [
+        i for i in main[0].findall("intent-filter")
+        if any(a.get(A + "name") == "android.intent.action.MAIN" for a in i.findall("action"))
+        and any(c.get(A + "name") == "android.intent.category.LAUNCHER" for c in i.findall("category"))
+    ]
+    if len(launcher_filters) != 1:
+        raise ValueError("Original SMAPI launcher not sole app launcher")
+
+    meta = ET.SubElement(main[0], "meta-data")
+    meta.set(A + "name", "android.app.shortcuts")
+    meta.set(A + "resource", "@xml/aurora_mod_shortcuts")
+    activity = ET.SubElement(app, "activity")
+    activity.set(A + "name", OVERVIEW)
+    activity.set(A + "exported", "true")
+    activity.set(A + "label", "@string/aurora_mod_shortcut")
+    activity.set(A + "theme", "@android:style/Theme.Material.NoActionBar")
+    workshop = ET.SubElement(app, "activity")
+    workshop.set(A + "name", WORKSHOP)
+    workshop.set(A + "exported", "true")
+    workshop.set(A + "label", "@string/aurora_workshop_shortcut")
+    workshop.set(A + "theme", "@style/Theme.JunimoGate")
+    backup = ET.SubElement(app, "activity")
+    backup.set(A + "name", BACKUP)
+    backup.set(A + "exported", "false")
+    backup.set(A + "label", "Aurora · Backup & Restore")
+    backup.set(A + "theme", "@style/Theme.JunimoGate")
+    # No extra MAIN launcher. Backups are accessible in original Mods navigation.
+    # Keep the Workshop inside the EXISTING Mods tab via native XML view
+    # inflation. The view has its own Android click handler, so we never
+    # patch the original Xamarin/.NET ModsFragment bytecode.
+    mods_layout = root / "res" / "layout" / "fragment_mods.xml"
+    if not mods_layout.is_file():
+        raise FileNotFoundError("Original Mods fragment layout missing")
+    layout_data = mods_layout.read_text(encoding="utf-8")
+    # Match both original source XML and Apktool-decoded layout indentation.
+    matches = list(re.finditer(
+        r'<TextView\b[^>]*android:id="(?:@\+id|@id)/mods_inventory_count"[^>]*>', layout_data))
+    if len(matches) != 1 or "AuroraWorkshopTabsView" in layout_data:
+        raise ValueError(
+            "Original Mods layout anchor missing/ambiguous/already patched: " +
+            (layout_data[max(0, layout_data.find("mods_inventory_count")-140):
+                         layout_data.find("mods_inventory_count")+140]
+             if "mods_inventory_count" in layout_data else "inventory_count absent"))
+    entry = (
+        '<org.junimogate.aurora.AuroraWorkshopTabsView\n'
+        '            android:layout_width="match_parent"\n'
+        '            android:layout_height="100dp"\n'
+        '            android:contentDescription="Установленные моды или Workshop" />\n\n        '
+    )
+    layout_data = layout_data[:matches[0].start()] + entry + layout_data[matches[0].start():]
+    ET.fromstring(layout_data)  # malformed layout must fail before any installation
+    mods_layout.write_text(layout_data, encoding="utf-8")
+    # Keep original compiled game/runtime untouched. Branding applies to
+    # Android Material color resources, including night mode.
+    app.set(A + "label", "SMAPI Aurora")
+    tree.write(manifest, encoding="utf-8", xml_declaration=True)
+
+    xml_dir = root / "res" / "xml"
+    values_dir = root / "res" / "values"
+    if not xml_dir.is_dir() or not values_dir.is_dir():
+        raise ValueError("Decoded resources missing")
+    shortcut_path = xml_dir / "aurora_mod_shortcuts.xml"
+    string_path = values_dir / "aurora_mod_manager_strings.xml"
+    if shortcut_path.exists() or string_path.exists():
+        raise ValueError("Resources already patched")
+    shortcut_path.write_text(SHORTCUT_XML, encoding="utf-8")
+    string_path.write_text(STRINGS_XML, encoding="utf-8")
+
+
+    # Aurora v1 UI identity: teal/midnight colors for ALL stock Material3
+    # screens and our native Workshop/Backup/Version toolbars.
+    palette = {
+      "values": {
+        "junimo_launcher_background":"#143943",
+        "junimo_primary":"#187F86",
+        "junimo_on_primary":"#FFFFFF",
+        "junimo_primary_container":"#C4F1EF",
+        "junimo_on_primary_container":"#08343A",
+        "junimo_secondary":"#476C73",
+        "junimo_on_secondary":"#FFFFFF",
+        "junimo_secondary_container":"#D5ECF0",
+        "junimo_on_secondary_container":"#17353A",
+        "junimo_tertiary":"#6659A7",
+        "junimo_on_tertiary":"#FFFFFF",
+        "junimo_tertiary_container":"#E7DFFF",
+        "junimo_on_tertiary_container":"#23174E",
+        "junimo_surface":"#F6F9FB",
+        "junimo_surface_container_low":"#EDF5F6",
+        "junimo_surface_container":"#E6F0F2",
+        "junimo_surface_container_high":"#DCE9ED",
+        "junimo_on_surface":"#17272C",
+        "junimo_on_surface_variant":"#4E666D",
+        "junimo_outline":"#758D94",
+        "junimo_outline_variant":"#C3D6D9",
+      },
+      "values-night": {
+        "junimo_primary":"#76D7DC",
+        "junimo_on_primary":"#00363B",
+        "junimo_primary_container":"#084E55",
+        "junimo_on_primary_container":"#B0F1F1",
+        "junimo_secondary":"#B0CED4",
+        "junimo_on_secondary":"#193239",
+        "junimo_secondary_container":"#294750",
+        "junimo_on_secondary_container":"#CEEAF0",
+        "junimo_tertiary":"#C4B7FF",
+        "junimo_on_tertiary":"#332361",
+        "junimo_tertiary_container":"#493C78",
+        "junimo_on_tertiary_container":"#E5DEFF",
+        "junimo_surface":"#10191F",
+        "junimo_surface_container_low":"#18252C",
+        "junimo_surface_container":"#1F3038",
+        "junimo_surface_container_high":"#29404A",
+        "junimo_on_surface":"#DDEDF1",
+        "junimo_on_surface_variant":"#B4C9CF",
+        "junimo_outline":"#80999E",
+        "junimo_outline_variant":"#38525A",
+      }
+    }
+    changed = []
+    for qualifier, shades in palette.items():
+        colors = root / "res" / qualifier / "colors.xml"
+        if not colors.is_file():
+            raise FileNotFoundError(f"Aurora palette missing base colors.xml: {qualifier}")
+        colors_tree = ET.parse(colors)
+        colors_root = colors_tree.getroot()
+        found = set()
+        for tag in colors_root.findall("color"):
+            name = tag.get("name")
+            if name in shades:
+                tag.text = shades[name]
+                found.add(name)
+        missing = set(shades) - found
+        if missing:
+            raise ValueError(f"Aurora palette does not contain: {missing}")
+        colors_tree.write(colors, encoding="utf-8", xml_declaration=True)
+        changed.append(qualifier)
+    print("PASS: Aurora v1 light/dark Material palette:", ", ".join(changed))
+
+    yml = apktool.read_text(encoding="utf-8")
+    yml, count = re.subn(r"(?m)^(\s*versionCode:\s*)([^\n]+)$",
+                         lambda m: m[1] + "100", yml, count=1)
+    if count != 1:
+        raise ValueError("Missing APK versionCode")
+    yml, count = re.subn(r"(?m)^(\s*versionName:\s*)([^\n]+)$",
+                         lambda m: m[1] + "1.0.0-rc.1", yml, count=1)
+    if count != 1:
+        raise ValueError("Missing APK versionName")
+    apktool.write_text(yml, encoding="utf-8")
+    print("PASS: Aurora v1 original SMAPI launcher preserved; Workshop, Backup and Versions in original Mods tab")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("decoded_apk", type=Path)
+    patch(parser.parse_args().decoded_apk)
