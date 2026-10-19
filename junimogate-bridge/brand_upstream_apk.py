@@ -54,9 +54,12 @@ def apply(directory:Path):
     if not manifest.is_file(): raise ValueError("Missing decoded AndroidManifest.xml")
     src=manifest.read_text(encoding="utf-8")
     if ORIGINAL_PACKAGE not in src: raise ValueError("Upstream APK manifest unexpected; package identity changed")
-    if "android:versionName=" not in src: raise ValueError("Missing Android versionName")
-    src,n=re.subn(r'android:versionName="[^"]+"',f'android:versionName="{ANDROID_VERSION}"',src,count=1)
-    if n!=1: raise ValueError("Android versionName not changed")
+    # Some APKtool versions omit a manifest versionName when the source APK
+    # stores the display version in its aapt resources. Keep it unchanged
+    # rather than inventing a new attribute that can break Xamarin metadata.
+    if 'android:versionName=' in src:
+        src,n=re.subn(r'android:versionName="[^"]+"',f'android:versionName="{ANDROID_VERSION}"',src,count=1)
+        if n!=1: raise ValueError("Android versionName not changed")
     manifest.write_text(src,encoding="utf-8")
     modified={"manifest":1}
     for qualifier in ("values","values-night"):
