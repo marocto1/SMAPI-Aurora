@@ -85,7 +85,7 @@ public final class AuroraVersionActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         if (gameIdentityStatus != null)
-            gameIdentityStatus.setText(gameVersion() + "\n" + formatCertificateStatus());
+            gameIdentityStatus.setText(gameVersion());
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -105,33 +105,30 @@ public final class AuroraVersionActivity extends Activity {
         scroll.addView(body);
         label(body, "SMAPI  AURORA", 13, MINT, Typeface.BOLD, 0);
         label(body, "Stardew Valley", 28, TEXT, Typeface.BOLD, 13);
-        label(body, "Центр запуска и выбора версии", 14, SUB, Typeface.NORMAL, 4);
+        label(body, "Играй с модами — без лишних настроек", 14, SUB, Typeface.NORMAL, 4);
 
         LinearLayout launch = card(body);
         label(launch, "SMAPI GAMEHOST", 12, MINT, Typeface.BOLD, 0);
-        label(launch, "Оригинальное ядро JunimoGate 4.5.2", 15, TEXT, Typeface.NORMAL, 7);
-        label(launch, "Этот экран не изменяет проверку подписи игры и не гарантирует совместимость модов.", 12, SUB, Typeface.NORMAL, 8);
-        button(launch, "Запустить SMAPI Aurora", true, this::launchSmapi);
+        label(launch, "Stardew Valley  +  SMAPI 4.5.2", 15, TEXT, Typeface.NORMAL, 7);
+        label(launch, gameVersion(), 13, SUB, Typeface.NORMAL, 8);
+        button(launch, "Играть с модами", true, this::launchSmapi);
+        button(launch, "Запустить обычную Stardew Valley", false, this::launchOriginalGame);
 
         LinearLayout build = card(body);
-        label(build, "ИГРА · КАТАЛОГ", 12, MINT, Typeface.BOLD, 0);
+        label(build, "УПРАВЛЕНИЕ ВЕРСИЯМИ", 12, MINT, Typeface.BOLD, 0);
         label(build, "Stardew Valley 1.6.15.3", 20, TEXT, Typeface.BOLD, 6);
-        label(build, "build 245  ·  ARM64  ·  3 APK (299 МБ архив)", 13, SUB, Typeface.NORMAL, 4);
-        gameIdentityStatus = label(build,
-            gameVersion() + "\n" + formatCertificateStatus(),
-            12, MINT, Typeface.NORMAL, 10);
-        button(build, "Проверить подпись установленной игры", false, this::showCertificateDetails);
-        button(build, "Скачать и установить автоматически", true, this::downloadAndInstallFromDrive);
-        button(build, "Настроить личный источник", false, this::editSavedLink);
-        button(build, "Импортировать локальный .apks (резервный способ)", false, this::chooseArchive);
-        button(build, "Обновить игру в Google Play", false, this::openGooglePlay);
-        button(build, "Настройки установленной Stardew Valley", false, this::openGameAppDetails);
+        label(build, "build 245  ·  Android ARM64", 13, SUB, Typeface.NORMAL, 4);
+        gameIdentityStatus = label(build, gameVersion(), 12, MINT, Typeface.NORMAL, 10);
+        button(build, "Скачать и установить выбранную версию", true, this::downloadAndInstallFromDrive);
+        button(build, "Источник для скачивания (настраивается один раз)", false, this::editSavedLink);
+        button(build, "Установить уже скачанный .apks", false, this::chooseArchive);
+        button(build, "Stardew Valley в Google Play", false, this::openGooglePlay);
 
         LinearLayout info = card(body);
-        label(info, "ПЕРЕД УСТАНОВКОЙ", 12, MINT, Typeface.BOLD, 0);
-        label(info, "Для Android потребуется подтверждение установки. При замене или откате версии заранее сохрани игровые сохранения.", 13, SUB, Typeface.NORMAL, 9);
-        label(info, "Твой личный файл не загружается в репозиторий, а доступ к нему не передаётся другим пользователям Aurora.", 13, SUB, Typeface.NORMAL, 8);
-        status = label(body, "Готово к выбору версии", 12, SUB, Typeface.NORMAL, 15);
+        label(info, "ПОДСКАЗКА", 12, MINT, Typeface.BOLD, 0);
+        label(info, "Если Stardew Valley уже установлена, просто нажми «Играть с модами». Загрузка игры не требуется.", 13, SUB, Typeface.NORMAL, 9);
+        label(info, "Для установки другой версии Android запросит подтверждение. Перед заменой сохрани игровые данные.", 13, SUB, Typeface.NORMAL, 8);
+        status = label(body, "Готово к запуску", 12, SUB, Typeface.NORMAL, 15);
         setContentView(scroll);
     }
 
@@ -310,16 +307,22 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     private void launchSmapi() {
-        if ("mismatch".equals(installedGameIdentity()[0])) {
-            explainSignatureMismatch();
-            return;
-        }
         try {
             Intent i = new Intent();
             i.setClassName(getPackageName(), "org.junimogate.app.MainActivity");
             startActivity(i);
         } catch (Exception e) {
             report("Не удалось открыть SMAPI: " + e.getClass().getSimpleName());
+        }
+    }
+
+    private void launchOriginalGame() {
+        try {
+            Intent i = getPackageManager().getLaunchIntentForPackage(GAME_ID);
+            if (i == null) { report("Stardew Valley не найдена на устройстве"); return; }
+            startActivity(i);
+        } catch (Exception e) {
+            report("Не удалось запустить игру: " + e.getClass().getSimpleName());
         }
     }
 
@@ -375,10 +378,6 @@ public final class AuroraVersionActivity extends Activity {
         if (!validDriveUrl(source)) {
             report("Для этой установки личный источник ещё не настроен.");
             editSavedLink();
-            return;
-        }
-        if ("mismatch".equals(installedGameIdentity()[0])) {
-            explainSignatureMismatch();
             return;
         }
         if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
@@ -530,10 +529,6 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     private void stageInstall(Uri content) {
-        if ("mismatch".equals(installedGameIdentity()[0])) {
-            explainSignatureMismatch();
-            return;
-        }
         if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
             new AlertDialog.Builder(this)
                 .setTitle("Разрешение на установку APK")
