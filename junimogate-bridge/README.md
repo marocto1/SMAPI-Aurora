@@ -1,5 +1,18 @@
 # SMAPI Aurora × JunimoGate — source integration
 
+## New experimental complete-SMAPI Android binary (19 October 2026)
+
+[**SMAPI Aurora v0.7.0 Runtime QA APK — 123 MB**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.7.0-runtime-qa) has been built and SHA256-verified. It includes the complete original JunimoGate v0.3.1 SMAPI Android GameHost and retains all 358 checked runtime payload files byte-for-byte, while applying Aurora app branding, resource palette and Russian UI strings through a documented APK resource-only adaptation.
+
+**Important limitations:** This is not our C# source-rebuilt full GameHost, and **its startup or mods have not been tested on a physical Android device**. It is a QA prerelease, not a guaranteed functional release. The Android application ID remains `org.junimogate.app` to preserve original .NET runtime binary references, and it has an independent QA certificate; it cannot update an existing JunimoGate installation without uninstalling it, which can delete private app data. Back up saves and mods first. The upstream game-package/signer checks remain unchanged.
+
+- [Resource-only Aurora APK patch](junimogate-bridge/brand_upstream_apk.py)
+- [Original/runtime byte-equivalence auditor](junimogate-bridge/audit_runtime_apk.py)
+- [Successful Android build and QA](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39181321232)
+- [Source correspondence and full limitations](junimogate-bridge/RUNTIME_QA_RELEASE_NOTES.md)
+
+
+
 ## Status
 
 **Source integration validated. This is not an Android release.**
