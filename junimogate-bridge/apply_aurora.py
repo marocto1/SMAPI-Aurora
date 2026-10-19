@@ -565,6 +565,12 @@ def plan(root: Path) -> dict[Path, str]:
     s = replace_one(s, old, new, str(p))
     changes[p] = s
 
+    # Interactive version catalog, store route and user-supplied APK handoff.
+    # The prebuilt upstream binary cannot receive these C# changes; it requires
+    # a full GameHost source build before this UI can ship.
+    from game_version_ui import add_version_install_ui
+    add_version_install_ui(root, changes, read, replace_one)
+
     p = APP / "Resources/layout/fragment_main_shell.xml"
     s = read(root, p)
     s = replace_one(s, '@drawable/junimogate_home_background', '@drawable/aurora_backdrop', str(p))
