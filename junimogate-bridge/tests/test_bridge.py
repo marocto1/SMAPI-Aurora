@@ -59,12 +59,22 @@ class BridgeTests(unittest.TestCase):
 
     def test_russian_locale_validated_against_default_resources(self):
         src = "<resources>" + "".join(
-            f'<string name="{name}">fallback</string>' for name in bridge.RU_STRINGS
+            f'<string name="{name}">{value}</string>'
+            for name, value in bridge.RU_STRINGS.items()
         ) + "</resources>"
         root = ET.fromstring(bridge.make_ru_resources(src))
         self.assertEqual(root.find("string[@name='nav_mods']").text, "Моды")
         with self.assertRaises(ValueError):
             bridge.make_ru_resources("<resources/>")
+
+    def test_mismatched_android_format_argument_rejected(self):
+        source = "<resources>" + "".join(
+            f'<string name="{name}">{value}</string>'
+            for name, value in bridge.RU_STRINGS.items()
+        ) + "</resources>"
+        source = source.replace("%1$s", "%1$d", 1)
+        with self.assertRaisesRegex(ValueError, "format args"):
+            bridge.make_ru_resources(source)
 
     def test_mark_and_backdrop_are_android_xml(self):
         self.assertTrue(ET.fromstring(bridge.MARK).tag.endswith("vector"))
