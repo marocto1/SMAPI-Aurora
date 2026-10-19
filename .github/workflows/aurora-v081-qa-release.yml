@@ -1,0 +1,55 @@
+name: Publish Aurora Android 16 split preparation hotfix QA
+on:
+  push:
+    paths:
+      - '.github/workflows/aurora-v081-qa-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download passing v0.8.1 APK and require exact SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v081"
+          gh run download 39190650579 --repo "${{ github.repository }}" \
+            --name SMAPI-Aurora-v0.8.1-Android16-Split-Prep-Fix-UNTESTED \
+            --dir "$RUNNER_TEMP/v081"
+          APK="$RUNNER_TEMP/v081/SMAPI-Aurora-v0.8.1-Android16-Split-Fix-arm64-QA.apk"
+          test -s "$APK"
+          echo "a6b36d352efca3fc2f72a5a7bff150624d180c691c01cf52318ef438fbb29dd5  $APK" | sha256sum --check
+          python3 - "$APK" <<'PY'
+          import sys,zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              names=set(z.namelist())
+              assert z.testzip() is None
+              assert "lib/arm64-v8a/lib_JunimoGate.Android.dll.so" in names
+              assert "lib/arm64-v8a/lib_JunimoGate.GameHost.dll.so" in names
+              assert "assets/smapi-managed/StardewModdingAPI.dll" in names
+              assert "classes3.dex" in names
+              assert "assets/licenses/JunimoGate-GPL-3.0-only.txt" in names
+              assert not any(n.lower().endswith("/stardewvalley.dll") for n in names)
+          print("PASS: complete SMAPI, game-host and repaired Android16 bridge present")
+          PY
+      - name: Publish as UNTESTED prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v0.8.1-android16-split-fix-qa \
+            "$RUNNER_TEMP/v081/SMAPI-Aurora-v0.8.1-Android16-Split-Fix-arm64-QA.apk" \
+            "$RUNNER_TEMP/v081/SHA256SUMS.txt" \
+            --repo "${{ github.repository }}" \
+            --target "$GITHUB_SHA" \
+            --title "SMAPI Aurora v0.8.1 — Android 16 split preparation fix (QA)" \
+            --notes-file junimogate-bridge/ANDROID16_HOTFIX_NOTES.md \
+            --prerelease
