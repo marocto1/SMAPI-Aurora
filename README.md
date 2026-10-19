@@ -1,3 +1,15 @@
+## SMAPI Aurora v0.8.8 — original SMAPI home restored (Android ARM64 QA)
+
+[**Download v0.8.8 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.8-native-home-qa) · [Native launcher and payload integrity build](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39203867578).
+
+**This fixes the UI architecture regression** introduced by the Java version-manager interstitial: the original `org.junimogate.app.MainActivity` is once again the only `MAIN/LAUNCHER` activity, so tapping the app icon goes directly to JunimoGate/SMAPI Home (circular play button, Mods, Logs, Settings). The `org.junimogate.aurora.AuroraVersionActivity` remains registered *only as an internal Versions screen*, available through the `Настройки → Настройки версий` button in the original managed SMAPI Settings page. The Back button returns to native Settings rather than an unnecessary extra Aurora menu.
+
+Android QA build/audit confirms the only non-signature APK entry changes relative to v0.8.7 are `AndroidManifest.xml` and `classes3.dex`. Existing managed SMAPI Settings tab, patched game-signer compatibility Core (v0.8.5), Android 16 split-source fix, GameHost and mods infrastructure remain byte-identical. No commercial game code is bundled.
+
+**The reported crash when tapping «Играть с модами» is not confirmed fixed.** That intermediate button has been removed, and the original launcher entry restored. Further game-launch crashes require a fresh `launcher-current.txt` from the device to distinguish UI startup from GameHost/game preparation and runtime failures. The latest earlier 7-line log showed `Ready` but not a complete game session.
+
+As with previous QA releases, new ephemeral Android APK signing certificates can prevent in-place upgrades. Back up saves, mods and Aurora's app-private data before uninstalling the launcher. Do not uninstall the separately installed Stardew Valley just to test the new launcher. Optional personal Drive downloads remain unconfigured on fresh installs unless a private URL was saved.
+
 ## SMAPI Aurora v0.8.7 — version settings inside the native SMAPI Settings tab (Android QA)
 
 [**Download v0.8.7 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.7-settings-versions-qa) · [PASS: build and three-file-only payload audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39201860189).
