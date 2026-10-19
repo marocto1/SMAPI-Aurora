@@ -1,0 +1,175 @@
+name: Aurora v0.8.9 Safe Boot Recovery QA (original managed App assembly)
+on:
+  push:
+    paths:
+      - '.github/workflows/aurora-v089-boot-recovery-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rollback-risky-managed-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Get immutable APK baselines and verified APK tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-v089"/{dist,decoded}
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for x in aapt zipalign apksigner; do test -x "$BUILD_TOOLS/$x"; done
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+          curl -fL --silent --show-error --retry 3 \
+            "https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.8-native-home-qa/SMAPI-Aurora-v0.8.8-Native-Home-arm64-QA.apk" \
+            -o "$RUNNER_TEMP/aurora-v089/broken.apk"
+          echo "8e2c95a221fb1edb3a268ae73dfccffa8ed4c83d508bf8bf7a1ff4247b9f6e4f  $RUNNER_TEMP/aurora-v089/broken.apk" | sha256sum -c
+          curl -fL --silent --show-error --retry 3 \
+            "https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.6-version-settings-qa/SMAPI-Aurora-v0.8.6-Version-Settings-arm64-QA.apk" \
+            -o "$RUNNER_TEMP/aurora-v089/pre-cecil.apk"
+          echo "e5e2f7758bcdcd994ebb96f6defce50987e93086ee5d2079e0593f715795a8c6  $RUNNER_TEMP/aurora-v089/pre-cecil.apk" | sha256sum -c
+          curl -fL --silent --show-error --retry 3 \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar" \
+            -o "$RUNNER_TEMP/aurora-v089/apktool.jar"
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v089/apktool.jar" | sha256sum -c
+
+      - name: Restore exact original managed JunimoGate.App Android ELF from before Cecil patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v089/apktool.jar" d -s -f \
+            "$RUNNER_TEMP/aurora-v089/broken.apk" -o "$RUNNER_TEMP/aurora-v089/decoded"
+          python3 - <<'PY'
+          import os,zipfile,hashlib,pathlib,re
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"aurora-v089"
+          t="lib/arm64-v8a/lib_JunimoGate.App.dll.so"
+          with zipfile.ZipFile(root/"pre-cecil.apk") as original,zipfile.ZipFile(root/"broken.apk") as damaged:
+              a=original.read(t)
+              b=damaged.read(t)
+              assert a[:4]==b[:4]==b"\x7fELF" and len(a)>100_000
+              assert a!=b, "Managed App unexpectedly unchanged; safety hypothesis invalid"
+              (root/"decoded"/t).write_bytes(a)
+              print("Reverted only CLR App ELF:",len(a),"bytes, SHA256",hashlib.sha256(a).hexdigest())
+              assert original.read("lib/arm64-v8a/lib_JunimoGate.GameHost.dll.so")==damaged.read("lib/arm64-v8a/lib_JunimoGate.GameHost.dll.so")
+              assert original.read("lib/arm64-v8a/lib_JunimoGate.Android.dll.so")==damaged.read("lib/arm64-v8a/lib_JunimoGate.Android.dll.so")
+              # Core intentionally differs: restored patched single-signer compatibility from v0.8.5 is not touched.
+          y=root/"decoded"/"apktool.yml"
+          v=y.read_text()
+          v,n=re.subn(r"(?m)^(\s*versionCode:\s*)([^\n]+)$",lambda m:m[1]+"20",v,count=1)
+          assert n==1
+          v,n=re.subn(r"(?m)^(\s*versionName:\s*)([^\n]+)$",lambda m:m[1]+"0.8.9-boot-recovery-qa",v,count=1)
+          assert n==1
+          y.write_text(v)
+          manifest=(root/"decoded"/"AndroidManifest.xml").read_text()
+          assert "org.junimogate.app.MainActivity" in manifest
+          assert "org.junimogate.aurora.AuroraVersionActivity" in manifest
+          print("PASS: preserved original SMAPI MAIN launcher; removed unsafe managed UI patch")
+          PY
+
+      - name: Rebuild and sign recovery APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v089/apktool.jar" b \
+            "$RUNNER_TEMP/aurora-v089/decoded" -o "$RUNNER_TEMP/aurora-v089/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 \
+            "$RUNNER_TEMP/aurora-v089/unsigned.apk" "$RUNNER_TEMP/aurora-v089/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v089/aligned.apk"
+          export QA_PASSWORD="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 \
+            -validity 3650 -dname "CN=SMAPI Aurora v0.8.9 Recovery QA,O=Marocto" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v089/qa-key.p12" \
+            -storepass "$QA_PASSWORD" -keypass "$QA_PASSWORD" >/dev/null
+          APK="$RUNNER_TEMP/aurora-v089/dist/SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurora-v089/qa-key.p12" \
+            --ks-type PKCS12 --ks-key-alias aurora-qa \
+            --ks-pass env:QA_PASSWORD --key-pass env:QA_PASSWORD \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$APK" "$RUNNER_TEMP/aurora-v089/aligned.apk"
+          unset QA_PASSWORD
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+      - name: Strict binary diff against crash reporter build and original managed library
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v089/dist/SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v089/badging.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='20' versionName='0.8.9-boot-recovery-qa'" "$RUNNER_TEMP/aurora-v089/badging.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-v089/badging.txt"
+          python3 - <<'PY'
+          import os,pathlib,zipfile,hashlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"aurora-v089"
+          src=root/"broken.apk"
+          old=root/"pre-cecil.apk"
+          out=root/"dist"/"SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk"
+          app="lib/arm64-v8a/lib_JunimoGate.App.dll.so"
+          with zipfile.ZipFile(src) as a,zipfile.ZipFile(out) as b,zipfile.ZipFile(old) as c:
+              assert a.testzip() is b.testzip() is c.testzip() is None
+              names=set(a.namelist())
+              assert names==set(b.namelist())
+              changed={n for n in names if not n.startswith("META-INF/") and a.read(n)!=b.read(n)}
+              assert changed=={app,"AndroidManifest.xml"},changed
+              assert b.read(app)==c.read(app),"Managed App did not restore exact pre-Cecil binary"
+              for name in names:
+                  if name.startswith("lib/") or name.startswith("assets/smapi-managed/"):
+                      if name==app:continue
+                      assert a.read(name)==b.read(name),f"Changed executable runtime unexpectedly: {name}"
+              assert b.read("classes3.dex")==a.read("classes3.dex")
+              assert "assets/smapi-managed/StardewModdingAPI.dll" in names
+              assert not any(n.lower().endswith("/stardewvalley.dll") for n in names)
+              print("PASS: EXACT original managed SMAPI app library; all GameHost, Core, Android16, native runtime and SMAPI intact")
+              print("PASS: no commercial game DLL or APK included; only Android manifest metadata and managed App ELF changed")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v089/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Restored exact pre-Cecil managed JunimoGate.App.dll.so byte for byte; no native type map mismatch from custom Cecil injection." >> "$GITHUB_STEP_SUMMARY"
+          echo "QA build/integrity checks only. A physical phone startup is not proven; installed-game support still requires on-device QA." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish rollback QA APK and important safety notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/aurora-v089/dist/READ-ME-FIRST.txt" <<'EOF'
+          Aurora v0.8.9 crash recovery QA (Android ARM64).
+          Restores original unmodified managed JunimoGate.App library from
+          the pre-Cecil v0.8.6 release while keeping original main SMAPI home.
+          This tests one specific suspected boot crash cause.
+
+          IMPORTANT: Settings > Version Settings injection is TEMPORARILY
+          REMOVED so original .NET Android startup metadata is unmodified.
+          GameHost, patched Core signer policy, Android16 split fix, SMAPI,
+          native runtime and mod loading files remain byte-identical v0.8.8.
+          The Aurora Java version screen exists but is not linked from Settings.
+
+          NOT verified on a phone. This build may still crash for another cause.
+          QA key rotates per build; Android may disallow in-place updates.
+          Do not uninstall separately installed Stardew Valley to test.
+          Back up Aurora app-private mods, configs and any saves BEFORE
+          uninstalling old Aurora. No paid Stardew game files bundled.
+          EOF
+          tag=v0.8.9-boot-recovery-qa
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to replace a previously signed QA APK."
+          else
+            gh release create "$tag" \
+              "$RUNNER_TEMP/aurora-v089/dist/SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk" \
+              "$RUNNER_TEMP/aurora-v089/dist/SHA256SUMS.txt" \
+              "$RUNNER_TEMP/aurora-v089/dist/READ-ME-FIRST.txt" \
+              --prerelease --title "SMAPI Aurora v0.8.9 — Original .NET App Restore / Boot Recovery QA" \
+              --notes "Experimental startup recovery: reinstates the exact unmodified JunimoGate.App.dll.so from Aurora v0.8.6 before custom managed Cecil Settings injection. Retains v0.8.8 original home, v0.8.5 Core installed-game signer support, Android16 split APK fix and all native/SMAPI/GameHost binaries. Internal Version Settings button is temporarily unavailable to isolate suspected Android managed typemap regression. A successful build is not proof the phone app now opens. Preserve mods/saves before removing old QA builds due different signing certificates. No game APK bundled."
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.8.9-Boot-Recovery-QA
+          path: ${{ runner.temp }}/aurora-v089/dist/
+          retention-days: 14
+          if-no-files-found: error
