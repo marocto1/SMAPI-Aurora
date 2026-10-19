@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from inject_mod_manager import A, OVERVIEW, LAUNCHER, patch
+from inject_mod_manager import A, OVERVIEW, WORKSHOP, LAUNCHER, patch
 
 
 class ModManagerPackagingTests(unittest.TestCase):
@@ -36,6 +36,7 @@ class ModManagerPackagingTests(unittest.TestCase):
         activities = root.find("application").findall("activity")
         self.assertEqual([a.get(A + "name") for a in activities].count(LAUNCHER), 1)
         self.assertEqual([a.get(A + "name") for a in activities].count(OVERVIEW), 1)
+        self.assertEqual([a.get(A + "name") for a in activities].count(WORKSHOP), 1)
         self.assertEqual(
             len([a for a in activities if a.get(A + "name") ==
                  "org.junimogate.aurora.AuroraVersionActivity"]), 1)
@@ -49,9 +50,11 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.assertEqual(shortcuts[0].get(A + "resource"), "@xml/aurora_mod_shortcuts")
         shortcut = ET.parse(self.root / "res/xml/aurora_mod_shortcuts.xml").getroot()
         self.assertEqual(shortcut[0][0].get(A + "targetClass"), OVERVIEW)
+        self.assertEqual(len(shortcut), 2)
+        self.assertEqual(shortcut[1][0].get(A + "targetClass"), WORKSHOP)
         strings = ET.parse(self.root / "res/values/aurora_mod_manager_strings.xml").getroot()
-        self.assertEqual(len(strings), 2)
-        self.assertIn("0.9.1-mod-manager-qa2", (self.root / "apktool.yml").read_text())
+        self.assertEqual(len(strings), 4)
+        self.assertIn("0.9.3-workshop-qa", (self.root / "apktool.yml").read_text())
 
     def test_patch_rejects_duplicates_instead_of_corrupting_manifest(self):
         patch(self.root)
