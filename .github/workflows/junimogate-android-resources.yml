@@ -38,6 +38,22 @@ jobs:
             -o "$RUNNER_TEMP/aurora-resources/compiled-resources.zip"
           test -s "$RUNNER_TEMP/aurora-resources/compiled-resources.zip"
           unzip -l "$RUNNER_TEMP/aurora-resources/compiled-resources.zip" | grep -E 'values-ru|aurora_mark|aurora_backdrop'
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          app=Path(".aurora-build/JunimoGate/src/JunimoGate.App")
+          style=ET.parse(app/"Resources/values/styles.xml").getroot()
+          theme=style.find("style[@name='Theme.JunimoGate']")
+          if theme is None:
+              raise SystemExit("Aurora style not found")
+          values={v.attrib["name"]:v.text for v in theme.findall("item")}
+          assert values["android:windowLightStatusBar"]=="false"
+          assert values["android:windowLightNavigationBar"]=="false"
+          ru=ET.parse(app/"Resources/values-ru/strings.xml").getroot()
+          keys={e.attrib["name"] for e in ru.findall("string")}
+          assert len(keys)>=280, f"Russian coverage unexpectedly regressed: {len(keys)}"
+          print(f"Aurora Russian strings: {len(keys)}; dark-mode system icon contrast: PASS")
+          PY
           echo "PASS: Android AAPT2 compiled Aurora resources with Russian locale" >> "$GITHUB_STEP_SUMMARY"
       - name: Validate safe application overlay
         run: |
