@@ -1,3 +1,13 @@
+## SMAPI Aurora v0.8.3 — in-app Google Drive auto-download (QA)
+
+[**Download v0.8.3 Android ARM64 QA**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.3-drive-autodownload-qa).
+
+- The **Download and install automatically** button now downloads the owner's configured `Stardew Valley_v1.6.15.3.build.245.apks` inside Aurora, shows download progress, validates the exact three APK entries and per-file SHA-256, and starts the standard Android PackageInstaller confirmation. No browser or document picker is needed for that path.
+- Source URL remains private in Android SharedPreferences. **No personal Google Drive URL is baked into public source or APK**. Because the previously supplied URL/ID was not recoverable from the available project state, fresh installs with no stored source still need a one-time private source configuration. This is a known limit; do not mistake the APK alone for a preconfigured personal download link.
+- Google Drive must permit HTTPS download for the selected share link; account-required or HTML confirmation flows may fail with a clear status instead of installing HTML.
+- Android signing integrity remains enforced. A differently signed existing Stardew Valley installation will still block compatible replacement until the user safely backs up game data and resolves the signature conflict through Android. Aurora will not uninstall/re-sign the game.
+- This is experimental QA: GitHub Actions compilation and payload audits are not an Android device gameplay test. The v0.8.3 QA APK has a newly generated signing certificate, so it may be incompatible as an in-place update to earlier QA launchers. Back up saves, mods and app-private settings first.
+
 ## SMAPI Aurora v0.8.2 — installed Stardew certificate diagnosis (QA)
 
 [**Download v0.8.2 QA**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.2-certificate-diagnostics-qa).
