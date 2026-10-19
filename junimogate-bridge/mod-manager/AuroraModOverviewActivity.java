@@ -223,12 +223,14 @@ public final class AuroraModOverviewActivity extends Activity {
                 if (dependencies != null) {
                     for (int j = 0; j < dependencies.length(); j++) {
                         JSONObject dep = dependencies.getJSONObject(j);
-                        if (dep.optBoolean("isRequired", true))
-                            row.dependencies.add(dep.optString("uniqueId") + "\t" +
-                                dep.optString("minimumVersion", ""));
+                        if (dep.optBoolean("isRequired", true)) {
+                            String min = dep.isNull("minimumVersion") ? "" : dep.optString("minimumVersion", "");
+                            row.dependencies.add(dep.optString("uniqueId") + "\t" + min);
+                        }
                     }
                 }
-                String forId = manifest.optString("contentPackForUniqueId", "");
+                String forId = manifest.isNull("contentPackForUniqueId") ? "" :
+                    manifest.optString("contentPackForUniqueId", "");
                 if (!forId.isEmpty()) row.dependencies.add(forId + "\t");
                 ProfileMember member = selected.get(row.id.toLowerCase(Locale.ROOT));
                 if (member != null && row.libraryId.equals(member.libraryId)) {
