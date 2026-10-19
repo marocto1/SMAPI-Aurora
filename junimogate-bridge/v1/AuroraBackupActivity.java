@@ -252,6 +252,16 @@ public final class AuroraBackupActivity extends Activity {
                         !lengths.get(name).equals(row.getLong("bytes")))
                         throw new IOException("Не совпадает контрольная сумма: "+name);
                 }
+                boolean hadUser=false,hadSaves=false;
+                for(String p:found.keySet()) {
+                    if(p.startsWith(ROOT_USER))hadUser=true;
+                    if(p.startsWith(ROOT_SAVES))hadSaves=true;
+                }
+                // A backup with no saves must not silently erase saves made later.
+                if(!hadUser && user.isDirectory() && user.list()!=null && user.list().length>0)
+                    throw new IOException("В архиве нет userdata, а на устройстве есть моды/настройки");
+                if(!hadSaves && saved.isDirectory() && saved.list()!=null && saved.list().length>0)
+                    throw new IOException("В архиве нет сохранений, а на устройстве есть фермы");
                 final File readyU=u,readyS=s;
                 final int files=found.size();
                 UI.post(() -> {
