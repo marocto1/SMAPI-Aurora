@@ -78,6 +78,8 @@ public final class AuroraVersionActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        if (state != null) currentPage = state.getInt(STATE_PAGE, PAGE_HOME);
+        if (currentPage < PAGE_HOME || currentPage > PAGE_VERSIONS) currentPage = PAGE_HOME;
         buildScreen();
         processInstallCallback(getIntent());
     }
@@ -94,42 +96,114 @@ public final class AuroraVersionActivity extends Activity {
         processInstallCallback(intent);
     }
 
+    private static final String STATE_PAGE = "aurora-page";
+    private static final int PAGE_HOME = 0;
+    private static final int PAGE_SETTINGS = 1;
+    private static final int PAGE_VERSIONS = 2;
+    private int currentPage = PAGE_HOME;
+
+    @Override protected void onSaveInstanceState(Bundle outState) {
+        outState.putInt(STATE_PAGE, currentPage);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override public void onBackPressed() {
+        if (currentPage == PAGE_VERSIONS) { navigateTo(PAGE_SETTINGS); return; }
+        if (currentPage == PAGE_SETTINGS) { navigateTo(PAGE_HOME); return; }
+        super.onBackPressed();
+    }
+
+    private void navigateTo(int page) {
+        if (busy) { toast("Дождись завершения операции"); return; }
+        currentPage = page;
+        buildScreen();
+    }
+
     private void buildScreen() {
+        gameIdentityStatus = null;
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
         int gutter = dp(20);
-        body.setPadding(gutter, dp(28), gutter, dp(35));
+        body.setPadding(gutter, dp(24), gutter, dp(35));
         scroll.addView(body);
+
         label(body, "SMAPI  AURORA", 13, MINT, Typeface.BOLD, 0);
+        if (currentPage == PAGE_HOME) {
+            buildHomePage(body);
+        } else if (currentPage == PAGE_SETTINGS) {
+            buildSettingsPage(body);
+        } else {
+            buildVersionsPage(body);
+        }
+        status = label(body, "Готово", 12, SUB, Typeface.NORMAL, 15);
+        setContentView(scroll);
+    }
+
+    private void buildHomePage(LinearLayout body) {
         label(body, "Stardew Valley", 28, TEXT, Typeface.BOLD, 13);
         label(body, "Играй с модами — без лишних настроек", 14, SUB, Typeface.NORMAL, 4);
 
         LinearLayout launch = card(body);
-        label(launch, "SMAPI GAMEHOST", 12, MINT, Typeface.BOLD, 0);
-        label(launch, "Stardew Valley  +  SMAPI 4.5.2", 15, TEXT, Typeface.NORMAL, 7);
-        label(launch, gameVersion(), 13, SUB, Typeface.NORMAL, 8);
+        label(launch, "ИГРА", 12, MINT, Typeface.BOLD, 0);
+        label(launch, gameVersion(), 14, SUB, Typeface.NORMAL, 7);
         button(launch, "Играть с модами", true, this::launchSmapi);
         button(launch, "Запустить обычную Stardew Valley", false, this::launchOriginalGame);
 
-        LinearLayout build = card(body);
-        label(build, "УПРАВЛЕНИЕ ВЕРСИЯМИ", 12, MINT, Typeface.BOLD, 0);
-        label(build, "Stardew Valley 1.6.15.3", 20, TEXT, Typeface.BOLD, 6);
-        label(build, "build 245  ·  Android ARM64", 13, SUB, Typeface.NORMAL, 4);
-        gameIdentityStatus = label(build, gameVersion(), 12, MINT, Typeface.NORMAL, 10);
-        button(build, "Скачать и установить выбранную версию", true, this::downloadAndInstallFromDrive);
-        button(build, "Источник для скачивания (настраивается один раз)", false, this::editSavedLink);
-        button(build, "Установить уже скачанный .apks", false, this::chooseArchive);
-        button(build, "Stardew Valley в Google Play", false, this::openGooglePlay);
+        LinearLayout options = card(body);
+        label(options, "ПАРАМЕТРЫ AURORA", 12, MINT, Typeface.BOLD, 0);
+        button(options, "Настройки  ⚙", false, () -> navigateTo(PAGE_SETTINGS));
+        label(options, "Настройки версий и источников загрузки находятся внутри настроек.", 12, SUB, Typeface.NORMAL, 6);
+    }
+
+    private void buildSettingsPage(LinearLayout body) {
+        button(body, "← Назад", false, () -> navigateTo(PAGE_HOME));
+        label(body, "Настройки", 28, TEXT, Typeface.BOLD, 13);
+        label(body, "Настройки лаунчера SMAPI Aurora", 14, SUB, Typeface.NORMAL, 4);
+
+        LinearLayout versions = card(body);
+        label(versions, "ИГРА И ВЕРСИИ", 12, MINT, Typeface.BOLD, 0);
+        button(versions, "Настройки версий", true, () -> navigateTo(PAGE_VERSIONS));
+        label(versions, "Установленная игра, поддерживаемые сборки, загрузка и установка.", 12, SUB, Typeface.NORMAL, 7);
 
         LinearLayout info = card(body);
-        label(info, "ПОДСКАЗКА", 12, MINT, Typeface.BOLD, 0);
-        label(info, "Если Stardew Valley уже установлена, просто нажми «Играть с модами». Загрузка игры не требуется.", 13, SUB, Typeface.NORMAL, 9);
-        label(info, "Для установки другой версии Android запросит подтверждение. Перед заменой сохрани игровые данные.", 13, SUB, Typeface.NORMAL, 8);
-        status = label(body, "Готово к запуску", 12, SUB, Typeface.NORMAL, 15);
-        setContentView(scroll);
+        label(info, "СИСТЕМА", 12, MINT, Typeface.BOLD, 0);
+        button(info, "Настройки установленной Stardew Valley", false, this::openGameAppDetails);
+        button(info, "Stardew Valley в Google Play", false, this::openGooglePlay);
+    }
+
+    private void buildVersionsPage(LinearLayout body) {
+        button(body, "← Настройки", false, () -> navigateTo(PAGE_SETTINGS));
+        label(body, "Настройки версий", 26, TEXT, Typeface.BOLD, 13);
+        label(body, "Управление версиями Stardew Valley", 14, SUB, Typeface.NORMAL, 4);
+
+        LinearLayout installed = card(body);
+        label(installed, "УСТАНОВЛЕННАЯ ИГРА", 12, MINT, Typeface.BOLD, 0);
+        gameIdentityStatus = label(installed, gameVersion(), 14, TEXT, Typeface.NORMAL, 8);
+        label(installed, "Для запуска этой игры повторное скачивание не требуется.", 12, SUB, Typeface.NORMAL, 7);
+
+        LinearLayout catalogue = card(body);
+        label(catalogue, "ДОСТУПНЫЕ ВЕРСИИ", 12, MINT, Typeface.BOLD, 0);
+        label(catalogue, "Stardew Valley 1.6.15.3 · build 245 · ARM64", 16, TEXT, Typeface.BOLD, 7);
+        label(catalogue, "Проверен состав архива из трёх APK. Другие версии появятся только после проверки совместимости.", 12, SUB, Typeface.NORMAL, 7);
+        button(catalogue, "Скачать и установить 1.6.15.3", true, this::downloadAndInstallFromDrive);
+        button(catalogue, "Выбрать скачанный .apks", false, this::chooseArchive);
+
+        LinearLayout source = card(body);
+        label(source, "ИСТОЧНИК ЗАГРУЗКИ", 12, MINT, Typeface.BOLD, 0);
+        String link = savedLink();
+        label(source, validDriveUrl(link) ?
+            "Личный источник Google Drive настроен" :
+            "Личный источник ещё не настроен. Для установленной игры он не нужен.",
+            12, SUB, Typeface.NORMAL, 7);
+        button(source, "Изменить источник Google Drive", false, this::editSavedLink);
+        label(source, "Личная ссылка сохраняется только в данных Aurora. Загрузка выполняется внутри приложения.", 12, SUB, Typeface.NORMAL, 7);
+
+        LinearLayout warning = card(body);
+        label(warning, "ВАЖНО", 12, MINT, Typeface.BOLD, 0);
+        label(warning, "Перед установкой другой версии сохрани игровые данные. Android может запретить обновление приложения с другой цифровой подписью.", 12, SUB, Typeface.NORMAL, 7);
     }
 
     private String gameVersion() {
@@ -445,7 +519,7 @@ public final class AuroraVersionActivity extends Activity {
                 connection.setInstanceFollowRedirects(false);
                 connection.setConnectTimeout(20000);
                 connection.setReadTimeout(120000);
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 SMAPI-Aurora/0.8.3");
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 SMAPI-Aurora/0.8.6");
                 try {
                     int code = connection.getResponseCode();
                     if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
