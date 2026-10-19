@@ -13,6 +13,15 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "res/xml").mkdir(parents=True)
         (self.root / "res/values").mkdir(parents=True)
+        (self.root / "res/layout").mkdir(parents=True)
+        (self.root / "res/layout/fragment_mods.xml").write_text("""<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView
+            android:id="@+id/mods_inventory_count"
+            android:layout_width="match_parent"
+            android:layout_height="32dp" />
+</LinearLayout>
+""", encoding="utf-8")
         (self.root / "apktool.yml").write_text(
             "versionInfo:\n  versionCode: 20\n  versionName: 0.8.9-boot-recovery-qa\n"
         )
@@ -54,7 +63,11 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.assertEqual(shortcut[1][0].get(A + "targetClass"), WORKSHOP)
         strings = ET.parse(self.root / "res/values/aurora_mod_manager_strings.xml").getroot()
         self.assertEqual(len(strings), 4)
-        self.assertIn("0.9.3-workshop-qa", (self.root / "apktool.yml").read_text())
+        layout = (self.root / "res/layout/fragment_mods.xml").read_text()
+        self.assertEqual(layout.count("AuroraWorkshopTabsView"), 1)
+        self.assertIn("mods_inventory_count", layout)
+        self.assertIn("@style/Theme.JunimoGate", (self.root / "AndroidManifest.xml").read_text())
+        self.assertIn("0.9.4-workshop-integrated-qa", (self.root / "apktool.yml").read_text())
 
     def test_patch_rejects_duplicates_instead_of_corrupting_manifest(self):
         patch(self.root)
