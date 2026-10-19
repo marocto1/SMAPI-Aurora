@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Aurora.SmapiSmoke</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="StardewModdingAPI">
+      <HintPath>$(AuroraSmapiApiDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="ValidateSmapiReference" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(AuroraSmapiApiDll)' == '' Or !Exists('$(AuroraSmapiApiDll)')"
+           Text="Build needs the openly distributed SMAPI API DLL from a checksum-pinned Aurora APK." />
+  </Target>
+</Project>
