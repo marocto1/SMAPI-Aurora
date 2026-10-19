@@ -1,3 +1,13 @@
+## SMAPI Aurora v0.8.2 — installed Stardew certificate diagnosis (QA)
+
+[**Download v0.8.2 QA**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.2-certificate-diagnostics-qa).
+
+The latest Android 16 `launcher-current.txt` shows that v0.8.1 **fixed the original split APK alignment exception**. The remaining error is `game_certificate_unrecognized` because the installed game's Android signing identity differs from JunimoGate's tested Google Play certificate.
+
+Aurora v0.8.2 now reads and displays the installed game's SHA-256 signing certificate and offers safe Google Play / game-app-settings actions. It warns against futile installation over a differently signed copy rather than attempting to bypass Android/SMAPI security. The **Android16 split-source hotfix and all original SMAPI/GameHost binaries are preserved**, with only the Java version chooser DEX and Android app version metadata changed. [QA build and integrity check PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39195297699).
+
+**Android hardware behavior and gameplay have not been verified. The installed Stardew game's signer cannot be changed by updating Aurora; use an appropriately signed game installation and back up saves before replacing anything.** v0.8.2 uses a disposable APK QA signing certificate and can conflict with prior Aurora builds under the same app ID. [Detailed release notes](junimogate-bridge/CERTIFICATE_QA_V082.md).
+
 ## Android 16 crash fix — SMAPI Aurora v0.8.1 QA
 
 [**Download v0.8.1 Android 16 split APK preparation hotfix**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.1-android16-split-fix-qa).
