@@ -1,3 +1,11 @@
+## SMAPI Aurora v0.8 — version manager QA APK
+
+[**Download SMAPI Aurora v0.8.0 Version Manager + full SMAPI APK (123 MB)**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.0-version-manager-qa).
+
+This QA build starts in a new Java Android version chooser embedded in the existing full JunimoGate SMAPI APK. It includes the original unchanged SMAPI/GameHost runtime plus a user-configured personal Google Drive download link slot, verified Stardew Valley 1.6.15.3 build 245 three-split `.apks` installation flow via Android PackageInstaller, official Play Store link, and button opening the original SMAPI launcher. No paid game binaries or public paid-download links are bundled.
+
+The Android APK and installer UI compiled successfully, APK is signed and audited, and 358 original runtime files match byte-for-byte. **Physical device/game preparation has not yet been tested; `game_preparation_failed` may still occur.** This version uses a new QA certificate and cannot directly update an existing differently signed Aurora/JunimoGate installation. Back up your private app data and saves before any uninstall. [Details and licensing](junimogate-bridge/VERSION_MANAGER_RELEASE_NOTES.md).
+
 # SMAPI Aurora — Android launcher
 
 ## New experimental complete-SMAPI Android binary (19 October 2026)
