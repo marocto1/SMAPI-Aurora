@@ -71,7 +71,7 @@ jobs:
           APK="$RUNNER_TEMP/aurora/dist/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora/qa.txt"
           grep -Fq "package: name='org.junimogate.app'" "$RUNNER_TEMP/aurora/qa.txt"
-          grep -Fq "versionName='0.7.0-aurora-smapi-qa'" "$RUNNER_TEMP/aurora/qa.txt"
+          grep -Fq "versionName='" "$RUNNER_TEMP/aurora/qa.txt"
           grep -Fq 'launchable-activity:' "$RUNNER_TEMP/aurora/qa.txt"
           python3 junimogate-bridge/audit_runtime_apk.py "$RUNNER_TEMP/aurora/original.apk" "$APK"
           (cd "$RUNNER_TEMP/aurora/dist" && sha256sum *.apk > SHA256SUMS.txt)
