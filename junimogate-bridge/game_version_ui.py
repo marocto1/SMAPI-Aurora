@@ -252,6 +252,8 @@ def add_version_install_ui(root: Path, changes: dict, read, replace_one):
         for key, value in translations.items():
             if xml.find(f"string[@name='{key}']") is not None:
                 raise ValueError(f"Duplicate resource {key}")
-            ET.SubElement(xml, "string", {"name": key}).text = value
+            # Android AAPT2 requires apostrophes in non-quoted string resources
+            # to be escaped independently of XML entity escaping.
+            ET.SubElement(xml, "string", {"name": key}).text = value.replace("'", "\\'")
         ET.indent(xml, space="    ")
         changes[p] = '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(xml, encoding="unicode") + "\n"
