@@ -247,7 +247,19 @@ public final class AuroraWorkshopActivity extends Activity {
                 "Без официального Nexus API нельзя безопасно получить защищённый " +
                 "адрес загрузки и автоматически поставить любой мод. " +
                 "Workshop не обходит ограничения Nexus.")
-            .setPositiveButton("Вернуться к модам", (d, w) -> finish())
+            .setPositiveButton("Выбрать ZIP в Aurora", (d, w) -> {
+                boolean canOpenPicker = AuroraWorkshopTabsView.requestOriginalZipImport();
+                finish();
+                if (!canOpenPicker) {
+                    Intent main = new Intent();
+                    main.setClassName(getPackageName(), "org.junimogate.app.MainActivity");
+                    main.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    try { startActivity(main); }
+                    catch (RuntimeException error) {
+                        // User can still launch Aurora normally and select Mods > Import.
+                    }
+                }
+            })
             .setNegativeButton("Продолжить просмотр", null).show();
     }
 
