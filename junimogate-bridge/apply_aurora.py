@@ -387,7 +387,7 @@ def make_ru_resources(default_english: str) -> str:
         raise ValueError("Russian translation keys absent from default strings: " + repr(sorted(missing)))
     # Android String.format is sensitive to placeholder indexes and argument types.
     # Reject translations that could crash the game/launcher with missing format args.
-    placeholder = re.compile(r"(?<!%)%(?:[1-9][0-9]*\\$)?[sdf]")
+    placeholder = re.compile(r"(?<!%)%(?:[1-9][0-9]*\$)?[sdf]")
     root = ET.Element("resources")
     for key, val in RU_STRINGS.items():
         source = english.find(f"string[@name='{key}']")
