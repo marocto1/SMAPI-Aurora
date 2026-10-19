@@ -1,0 +1,74 @@
+name: Aurora installed-signer source policy QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/allow_installed_signer.py'
+      - '.github/workflows/aurora-installed-signer-source-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: leontismaro/JunimoGate
+          ref: 029eafed917ae853d6c0a59330ee273524168296
+          path: junimogate-upstream
+          submodules: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Validate opt-in source patch and compile Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 junimogate-bridge/allow_installed_signer.py junimogate-upstream
+          python3 junimogate-bridge/allow_installed_signer.py junimogate-upstream --apply
+          dotnet build junimogate-upstream/src/JunimoGate.Core/JunimoGate.Core.csproj -c Release --nologo
+      - name: Validate distinct installed signers and unchanged package checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-signer-test"
+          cat > "$RUNNER_TEMP/aurora-signer-test/AuroraSignerPolicySmoke.csproj" <<EOF
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net9.0</TargetFramework>
+            </PropertyGroup>
+            <ItemGroup>
+              <ProjectReference Include="$GITHUB_WORKSPACE/junimogate-upstream/src/JunimoGate.Core/JunimoGate.Core.csproj" />
+            </ItemGroup>
+          </Project>
+          EOF
+          cat > "$RUNNER_TEMP/aurora-signer-test/Program.cs" <<'EOF'
+          using JunimoGate.Core;
+
+          var official = Sha256Digest.Parse(KnownGameCertificate.PlayCertificateSha256);
+          var alternate = Sha256Digest.Parse(new string('b', 64));
+
+          void Expect(bool test, string name) {
+              if (!test) throw new Exception("Policy QA FAIL: " + name);
+              Console.WriteLine("PASS: " + name);
+          }
+
+          var known = KnownGameCertificate.Verify(KnownGameCertificate.PlayPackageName, new SigningIdentity([official]));
+          Expect(known.Status == GameCertificateStatus.KnownTested && known.AllowsCodeExecution, "Known Play certificate");
+
+          var installed = KnownGameCertificate.Verify(KnownGameCertificate.PlayPackageName, new SigningIdentity([alternate]));
+          Expect(installed.Status == GameCertificateStatus.AuroraUserInstalled && installed.AllowsCodeExecution, "Android-installed alternate single signer");
+
+          var multiple = KnownGameCertificate.Verify(KnownGameCertificate.PlayPackageName, new SigningIdentity([official, alternate]));
+          Expect(multiple.Status == GameCertificateStatus.Unrecognized && !multiple.AllowsCodeExecution, "Unexpected multiple signers rejected");
+
+          var wrongPackage = KnownGameCertificate.Verify("com.unrelated.game", new SigningIdentity([alternate]));
+          Expect(wrongPackage.Status == GameCertificateStatus.NotConfigured && !wrongPackage.AllowsCodeExecution, "Unrelated game package rejected");
+          EOF
+          dotnet run --project "$RUNNER_TEMP/aurora-signer-test/AuroraSignerPolicySmoke.csproj" -c Release --nologo
+          echo "Source policy smoke PASS. This is not a complete Android GameHost build or device run." >> "$GITHUB_STEP_SUMMARY"
