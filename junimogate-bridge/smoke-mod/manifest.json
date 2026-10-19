@@ -1,0 +1,10 @@
+{
+  "Name": "Aurora SMAPI Launch Smoke Test",
+  "Author": "Marocto / SMAPI Aurora",
+  "Version": "1.0.0",
+  "Description": "Noninvasive SMAPI startup/event probe. Logs AURORA_SMOKE markers only; does not alter saves.",
+  "UniqueID": "Marocto.Aurora.SmapiSmoke",
+  "EntryDll": "Aurora.SmapiSmoke.dll",
+  "MinimumApiVersion": "4.5.2",
+  "UpdateKeys": []
+}
