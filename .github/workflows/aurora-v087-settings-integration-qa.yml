@@ -70,7 +70,30 @@ jobs:
           assert len(found)==1 and found[0].startswith(b"MZ")
           assert b"JunimoGate.App" in found[0]
           (output/"original-app.dll").write_bytes(found[0])
-          print("PASS: decoded existing managed SMAPI Settings assembly from signed baseline")
+          # Resolve metadata references with original managed assemblies from the
+          # pinned Aurora APK; never put these temporary copies in the release.
+          for lib in (root/"lib/arm64-v8a").glob("lib_*.dll.so"):
+              raw=lib.read_bytes()
+              if raw[:6]!=b"\\x7fELF\\x02\\x01":
+                  continue
+              sh=struct.unpack_from("<Q",raw,0x28)[0]
+              hs=struct.unpack_from("<H",raw,0x3a)[0]
+              cnt=struct.unpack_from("<H",raw,0x3c)[0]
+              names_index=struct.unpack_from("<H",raw,0x3e)[0]
+              ns=sh+names_index*hs
+              start,size=struct.unpack_from("<QQ",raw,ns+24)
+              table=raw[start:start+size]
+              for idx in range(cnt):
+                  pos=sh+idx*hs
+                  no=struct.unpack_from("<I",raw,pos)[0]
+                  if table[no:].split(b"\\0",1)[0]!=b"payload":
+                      continue
+                  off,length=struct.unpack_from("<QQ",raw,pos+24)
+                  payload=raw[off:off+length]
+                  if payload.startswith(b"MZ"):
+                      (output/lib.name[4:-3]).write_bytes(payload)
+          assert (output/"JunimoGate.Mods.dll").exists(), "Missing App metadata dependency"
+          print("PASS: decoded managed SMAPI Settings assembly and private build-time dependency references")
           PY
 
       - name: Patch managed SettingsFragment with Aurora version settings entry
