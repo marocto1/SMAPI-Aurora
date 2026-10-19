@@ -83,8 +83,18 @@ def validate_pe_header(stream) -> None:
     if header[pe_offset:pe_offset + 4] != b"PE\x00\x00":
         raise InvalidReferences("Missing PE signature")
     optional_size = int.from_bytes(header[pe_offset + 20:pe_offset + 22], "little")
-    if optional_size < 96:
-        raise InvalidReferences("Missing PE optional header")
+    optional_start = pe_offset + 24
+    magic = int.from_bytes(header[optional_start:optional_start + 2], "little")
+    if magic not in (0x10b, 0x20b):
+        raise InvalidReferences("Invalid PE optional header")
+    directory_offset = 96 if magic == 0x10b else 112
+    cli_entry = optional_start + directory_offset + 14 * 8
+    if (optional_size < directory_offset + 15 * 8 or cli_entry + 8 > len(header)):
+        raise InvalidReferences("PE has no .NET CLI metadata directory")
+    cli_rva = int.from_bytes(header[cli_entry:cli_entry + 4], "little")
+    cli_size = int.from_bytes(header[cli_entry + 4:cli_entry + 8], "little")
+    if cli_rva == 0 or cli_size < 72:
+        raise InvalidReferences("PE is not a managed .NET assembly")
 
 
 def extract_private_references(archive_path: Path, destination: Path, *,

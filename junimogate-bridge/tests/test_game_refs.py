@@ -19,6 +19,10 @@ def minimal_pe() -> bytes:
     b[0x3c:0x40] = (0x80).to_bytes(4, "little")
     b[0x80:0x84] = b"PE\x00\x00"
     b[0x80 + 20:0x80 + 22] = (224).to_bytes(2, "little")
+    b[0x80 + 24:0x80 + 26] = (0x10b).to_bytes(2, "little")
+    cli = 0x80 + 24 + 96 + 14 * 8
+    b[cli:cli + 4] = (0x2000).to_bytes(4, "little")
+    b[cli + 4:cli + 8] = (72).to_bytes(4, "little")
     return bytes(b)
 
 
@@ -72,6 +76,16 @@ class PrivateReferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             archive = Path(tmp) / "bad.zip"
             put_zip(archive, filedata=b"Not a .NET DLL" * 100)
+            with self.assertRaises(refs.InvalidReferences):
+                refs.extract_private_references(archive, Path(tmp) / "out")
+
+    def test_native_pe_without_cli_metadata_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "native-only.zip"
+            data = bytearray(minimal_pe())
+            cli = 0x80 + 24 + 96 + 14 * 8
+            data[cli:cli + 8] = b"\\x00" * 8
+            put_zip(archive, filedata=bytes(data))
             with self.assertRaises(refs.InvalidReferences):
                 refs.extract_private_references(archive, Path(tmp) / "out")
 
