@@ -3,7 +3,7 @@ on:
   push:
     paths:
       - 'junimogate-bridge/mod-manager/**'
-      - '.github/workflows/aurora-v09411-inapp-workshop-import-qa.yml'
+      - '.github/workflows/aurora-v0941-inapp-workshop-import-qa.yml'
   workflow_dispatch:
 permissions:
   contents: write
