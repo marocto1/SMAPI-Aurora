@@ -583,7 +583,7 @@ def plan(root: Path) -> dict[Path, str]:
     changes[p] = s
 
     p = APP / "MainActivity.cs"
-    s = read(root, p)
+    s = changes.get(p) or read(root, p)
     s = replace_one(s,
         'private const string OfficialReleasesUrl = "https://github.com/leontismaro/JunimoGate/releases";',
         'private const string OfficialReleasesUrl = "https://github.com/marocto1/SMAPI-Aurora/releases";', str(p))
