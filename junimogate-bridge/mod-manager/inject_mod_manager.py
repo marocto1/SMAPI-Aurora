@@ -95,17 +95,16 @@ def patch(root: Path) -> None:
     if not mods_layout.is_file():
         raise FileNotFoundError("Original Mods fragment layout missing")
     layout_data = mods_layout.read_text(encoding="utf-8")
-    anchor = '<TextView\\n            android:id="@+id/mods_inventory_count"'
     # Match both original source XML and Apktool-decoded layout indentation.
     matches = list(re.finditer(
-        r'<TextView\\s+android:id="@\\+id/mods_inventory_count"', layout_data))
+        r'<TextView\s+android:id="@\+id/mods_inventory_count"', layout_data))
     if len(matches) != 1 or "AuroraWorkshopTabsView" in layout_data:
         raise ValueError("Original Mods layout anchor missing, ambiguous or already patched")
     entry = (
-        '<org.junimogate.aurora.AuroraWorkshopTabsView\\n'
-        '            android:layout_width="match_parent"\\n'
-        '            android:layout_height="56dp"\\n'
-        '            android:contentDescription="Установленные моды или Workshop" />\\n\\n        '
+        '<org.junimogate.aurora.AuroraWorkshopTabsView\n'
+        '            android:layout_width="match_parent"\n'
+        '            android:layout_height="56dp"\n'
+        '            android:contentDescription="Установленные моды или Workshop" />\n\n        '
     )
     layout_data = layout_data[:matches[0].start()] + entry + layout_data[matches[0].start():]
     ET.fromstring(layout_data)  # malformed layout must fail before any installation
