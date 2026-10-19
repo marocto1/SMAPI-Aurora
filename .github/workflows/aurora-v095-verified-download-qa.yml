@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s junimogate-bridge/mod-manager -p 'test_*.py' -v
           WORKSHOP=junimogate-bridge/mod-manager/AuroraWorkshopActivity.java
-          TABS=junimogate-bridge/mod-manager/AuroraWorkshopTabsView.java junimogate-bridge/mod-manager/AuroraDirectDownloads.java
+          TABS=junimogate-bridge/mod-manager/AuroraWorkshopTabsView.java
           test -s "$WORKSHOP"
           test -s "$TABS"
           grep -Fq 'new WebView(this)' "$WORKSHOP"
