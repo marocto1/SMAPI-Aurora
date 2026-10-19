@@ -67,7 +67,7 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.assertEqual(layout.count("AuroraWorkshopTabsView"), 1)
         self.assertIn("mods_inventory_count", layout)
         self.assertIn("@style/Theme.JunimoGate", (self.root / "AndroidManifest.xml").read_text())
-        self.assertIn("0.9.4.1-workshop-inapp-qa", (self.root / "apktool.yml").read_text())
+        self.assertIn("0.9.5-direct-download-qa", (self.root / "apktool.yml").read_text())
 
     def test_apktool_normalized_mods_layout(self):
         p = self.root / "res/layout/fragment_mods.xml"
