@@ -7,7 +7,11 @@ if (args.Length != 2)
     return 2;
 }
 
-using var assembly = AssemblyDefinition.ReadAssembly(args[0], new ReaderParameters { InMemory = true });
+var resolver = new DefaultAssemblyResolver();
+resolver.AddSearchDirectory(Path.GetDirectoryName(Path.GetFullPath(args[0]))!);
+using var assembly = AssemblyDefinition.ReadAssembly(args[0], new ReaderParameters {
+    InMemory = true, AssemblyResolver = resolver
+});
 var module = assembly.MainModule;
 var fragment = module.Types.SingleOrDefault(t => t.FullName == "JunimoGate.App.SettingsFragment")
     ?? throw new InvalidOperationException("Bundled SMAPI SettingsFragment missing or renamed");
