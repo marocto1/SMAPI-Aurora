@@ -32,9 +32,9 @@ The dashboard **never writes/modifies** the mod index, group profiles, saves, ga
 
 ## APK
 
-- [v0.9.1 QA release](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.9.1-mod-manager-qa)
+- [v0.9.1 QA2 release](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.9.1-mod-manager-qa2)
 - [GitHub Actions checks](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39216721419)
-- [Direct ARM64 APK](https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.9.1-mod-manager-qa/SMAPI-Aurora-v0.9.1-Mod-Manager-arm64-QA.apk)
+- [Direct ARM64 APK](https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.9.1-mod-manager-qa2/SMAPI-Aurora-v0.9.1-Mod-Manager-arm64-QA.apk)
 
 **Important:** Each QA APK uses a new temporary signing key. Android cannot upgrade the differently signed version over an installed Aurora. **Never uninstall the working v0.8.9 until app-private mods, group exports/configs and any game saves have been independently backed up and verified.** Do not uninstall Stardew Valley. Avoid misleading claims that v0.9.1 has passed device/gameplay tests before that occurs.
 
@@ -46,3 +46,6 @@ The dashboard **never writes/modifies** the mod index, group profiles, saves, ga
 - `.github/workflows/aurora-v091-mod-manager-qa.yml`: verified baseline APK, Java compilation, Android packaging, explicit binary integrity QA.
 
 **Known limits:** No Android device test for shortcut availability; home-screen launchers may hide app shortcuts. No direct "Overview" navigation control inside the stock managed Mods tab, since injecting custom .NET methods broke the v0.8.7/8 boot path. Native screen does not replace transactional group edit commands. No remote online mod downloads/updates or live compatibility certification.
+
+
+QA2 fixes null optional dependency metadata that could otherwise produce a false missing-dependency warning. QA1 is superseded; use QA2 for evaluation.
