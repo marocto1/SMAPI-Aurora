@@ -29,6 +29,8 @@ jobs:
         run: |
           set -euo pipefail
           B="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          echo "Signer tool raw output (public certificate only):"
+          "$B/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/aurora-signing/old.apk" | head -35
           python3 junimogate-bridge/signing/verify_upgrade.py \
             "$RUNNER_TEMP/aurora-signing/old.apk" \
             "$RUNNER_TEMP/aurora-signing/new.apk" \
