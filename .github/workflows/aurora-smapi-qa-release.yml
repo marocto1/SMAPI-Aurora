@@ -1,0 +1,59 @@
+name: Publish verified Aurora SMAPI Runtime QA APK
+on:
+  push:
+    paths:
+      - '.github/workflows/aurora-smapi-qa-release.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download known-passing experimental full SMAPI APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora"
+          gh run download 39181321232 --repo "${{ github.repository }}" \
+            --name SMAPI-Aurora-v0.7.0-Full-SMAPI-Runtime-QA \
+            --dir "$RUNNER_TEMP/aurora"
+          test -s "$RUNNER_TEMP/aurora/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk"
+          echo "869367b6918d51063ce4e7e5c279d972aa04f05976cfb142cd81604c92c94cc3  $RUNNER_TEMP/aurora/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk" | sha256sum -c
+      - name: Check artifact is complete SMAPI runtime, not Preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          apk=Path(__import__('os').environ['RUNNER_TEMP'])/'aurora'/'SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk'
+          assert apk.stat().st_size>120_000_000
+          with ZipFile(apk) as z:
+              assert z.testzip() is None
+              files=set(z.namelist())
+              assert 'assets/smapi-managed/StardewModdingAPI.dll' in files
+              assert any(n.startswith('lib/arm64-v8a/') for n in files)
+              assert 'assets/licenses/JunimoGate-GPL-3.0-only.txt' in files
+              assert 'assets/licenses/JunimoGate-SMAPI-LGPL-3.0-only.txt' in files
+              assert not any(p.rsplit('/',1)[-1] in ('StardewValley.dll','StardewValley.GameData.dll') for p in files)
+          print('PASS: full original SMAPI/GameHost present; not original game content')
+          PY
+      - name: Create QA prerelease (never stable)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v0.7.0-runtime-qa \
+            "$RUNNER_TEMP/aurora/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk#SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk" \
+            "$RUNNER_TEMP/aurora/SHA256SUMS.txt" \
+            --repo "${{ github.repository }}" \
+            --target "$GITHUB_SHA" \
+            --title "SMAPI Aurora v0.7.0 — Full SMAPI Runtime QA (unverified)" \
+            --notes-file junimogate-bridge/RUNTIME_QA_RELEASE_NOTES.md \
+            --prerelease
