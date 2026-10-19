@@ -86,8 +86,30 @@ def patch(root: Path) -> None:
     workshop.set(A + "name", WORKSHOP)
     workshop.set(A + "exported", "true")
     workshop.set(A + "label", "@string/aurora_workshop_shortcut")
-    workshop.set(A + "theme", "@android:style/Theme.Material.NoActionBar")
+    workshop.set(A + "theme", "@style/Theme.JunimoGate")
     # Both extra Activities are launcher app-shortcut destinations, not MAIN launchers.
+    # Keep the Workshop inside the EXISTING Mods tab via native XML view
+    # inflation. The view has its own Android click handler, so we never
+    # patch the original Xamarin/.NET ModsFragment bytecode.
+    mods_layout = root / "res" / "layout" / "fragment_mods.xml"
+    if not mods_layout.is_file():
+        raise FileNotFoundError("Original Mods fragment layout missing")
+    layout_data = mods_layout.read_text(encoding="utf-8")
+    anchor = '<TextView\\n            android:id="@+id/mods_inventory_count"'
+    # Match both original source XML and Apktool-decoded layout indentation.
+    matches = list(re.finditer(
+        r'<TextView\\s+android:id="@\\+id/mods_inventory_count"', layout_data))
+    if len(matches) != 1 or "AuroraWorkshopTabsView" in layout_data:
+        raise ValueError("Original Mods layout anchor missing, ambiguous or already patched")
+    entry = (
+        '<org.junimogate.aurora.AuroraWorkshopTabsView\\n'
+        '            android:layout_width="match_parent"\\n'
+        '            android:layout_height="56dp"\\n'
+        '            android:contentDescription="Установленные моды или Workshop" />\\n\\n        '
+    )
+    layout_data = layout_data[:matches[0].start()] + entry + layout_data[matches[0].start():]
+    ET.fromstring(layout_data)  # malformed layout must fail before any installation
+    mods_layout.write_text(layout_data, encoding="utf-8")
     tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
     xml_dir = root / "res" / "xml"
@@ -103,15 +125,15 @@ def patch(root: Path) -> None:
 
     yml = apktool.read_text(encoding="utf-8")
     yml, count = re.subn(r"(?m)^(\s*versionCode:\s*)([^\n]+)$",
-                         lambda m: m[1] + "23", yml, count=1)
+                         lambda m: m[1] + "24", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionCode")
     yml, count = re.subn(r"(?m)^(\s*versionName:\s*)([^\n]+)$",
-                         lambda m: m[1] + "0.9.3-workshop-qa", yml, count=1)
+                         lambda m: m[1] + "0.9.4-workshop-integrated-qa", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionName")
     apktool.write_text(yml, encoding="utf-8")
-    print("PASS: original launcher preserved, read-only manager and Nexus Workshop shortcuts injected")
+    print("PASS: original launcher preserved, Workshop integrated into original Mods tab; managed SMAPI untouched")
 
 
 if __name__ == "__main__":
