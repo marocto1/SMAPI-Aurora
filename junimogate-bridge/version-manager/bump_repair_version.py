@@ -13,10 +13,10 @@ def main():
     decoded=root/"apktool.yml"
     content=decoded.read_text(encoding="utf-8")
     needle=r"(?m)^(\s*versionCode:\s*)([^\n]+)$"
-    content,count=re.subn(needle,lambda m:m[1]+"13",content)
+    content,count=re.subn(needle,lambda m:m[1]+"14",content)
     if count!=1: raise ValueError("APK versionCode missing")
     needle=r"(?m)^(\s*versionName:\s*)([^\n]+)$"
-    content,count=re.subn(needle,lambda m:m[1]+"0.8.2-cert-diagnostics-qa",content)
+    content,count=re.subn(needle,lambda m:m[1]+"0.8.3-drive-download-qa",content)
     if count!=1: raise ValueError("APK versionName missing")
     decoded.write_text(content,encoding="utf-8")
     manifest=(root/"AndroidManifest.xml").read_text(encoding="utf-8")
@@ -24,6 +24,6 @@ def main():
         raise ValueError("The existing Aurora version manager Activity was lost")
     if 'org.junimogate.app.MainActivity' not in manifest:
         raise ValueError("The original SMAPI launcher Activity was lost")
-    print("PASS: Aurora v0.8.2 manifest lineage preserved, Android versionCode=13")
+    print("PASS: Aurora v0.8.3 manifest lineage preserved, Android versionCode=14")
 
 if __name__=="__main__":main()
