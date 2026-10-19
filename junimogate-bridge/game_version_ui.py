@@ -381,7 +381,7 @@ def add_version_install_ui(root: Path, changes: dict, read, replace_one):
     changes[APP / "AuroraSplitApkInstaller.cs"] = installer_source
 
     p = APP / "MainActivity.cs"
-    source = changes[p]
+    source = read(root, p)
     old = """        if (TryRouteToActiveGame())
             return;"""
     new = """        if (AuroraSplitApkInstaller.HandleCallback(this, Intent))
