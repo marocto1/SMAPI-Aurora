@@ -84,7 +84,7 @@ class PrivateReferenceTests(unittest.TestCase):
             archive = Path(tmp) / "native-only.zip"
             data = bytearray(minimal_pe())
             cli = 0x80 + 24 + 96 + 14 * 8
-            data[cli:cli + 8] = b"\\x00" * 8
+            data[cli:cli + 8] = bytes(8)
             put_zip(archive, filedata=bytes(data))
             with self.assertRaises(refs.InvalidReferences):
                 refs.extract_private_references(archive, Path(tmp) / "out")
