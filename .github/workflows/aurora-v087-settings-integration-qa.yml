@@ -1,10 +1,5 @@
 name: Aurora v0.8.7 SMAPI Settings version integration QA
 on:
-  push:
-    paths:
-      - 'junimogate-bridge/version-manager/**'
-      - 'junimogate-bridge/settings-patch/**'
-      - '.github/workflows/aurora-v087-settings-integration-qa.yml'
   workflow_dispatch:
 
 permissions:
