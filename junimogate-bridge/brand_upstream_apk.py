@@ -58,7 +58,7 @@ def apply(directory:Path):
     # Updating only @string/app_name changes the Activity label but not the
     # launcher-visible application name in Android settings.
     application_label=re.compile(
-        r'(<application\\b[^>]*\\bandroid:label=")([^"]+)(")', re.DOTALL)
+        r'(<application\b[^>]*\bandroid:label=")([^"]+)(")', re.DOTALL)
     src,count=application_label.subn(
         lambda m:m.group(1)+"SMAPI Aurora"+m.group(3),src,count=1)
     if count!=1:
