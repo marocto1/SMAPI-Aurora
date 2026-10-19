@@ -1,3 +1,17 @@
+## SMAPI Aurora v0.8.7 — version settings inside the native SMAPI Settings tab (Android QA)
+
+[**Download v0.8.7 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.7-settings-versions-qa) · [PASS: build and three-file-only payload audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39201860189).
+
+- Adds the **Настройки версий** button **inside JunimoGate/SMAPI's existing Настройки tab** (not just Aurora's entry screen). It opens the Aurora version settings page directly.
+- Aurora's **Настройки → Настройки версий** screen is also available before entering SMAPI. Both routes display the installed Stardew Valley version, the one SHA256-verified ARM64 game archive `1.6.15.3 build 245`, private Drive download configuration, in-app download progress, and local APKS import.
+- The installed game's SMAPI launch requires **no Drive download**. Other versions are not claimed to work without validation.
+- **Build verification:** the existing APK was re-signed with a targeted patch of the managed `JunimoGate.App` SettingsFragment, the Java version screen `classes3.dex`, and Android version metadata. The v0.8.5 installed-game signer-compatible `JunimoGate.Core`, the SMAPI GameHost, native runtime, and the Android16 split-array hotfix remain byte-for-byte unchanged.
+- **Device verification is still pending.** The Android UI callback and actual SMAPI gameplay have not been confirmed on the target phone. The earlier seven-line launcher log reaches `Ready`, but does not prove a complete game launch.
+- **Drive caveat:** the previously submitted exact private link is not recoverable from available source data. A fresh install of the optional downloader still needs user-provided source configuration. It is not silently embedded into the public release.
+- **Signing caveat:** every QA release is signed with a new throwaway certificate. Android may reject an in-place launcher update. Back up launcher data, mods and game saves before replacing Aurora. Do not uninstall Stardew Valley just to try this UI update.
+
+Source: [managed Settings button injector](junimogate-bridge/settings-patch/Program.cs), [Java Settings/Versions page](junimogate-bridge/version-manager/AuroraVersionActivity.java), [build workflow](.github/workflows/aurora-v087-settings-integration-qa.yml).
+
 ## SMAPI Aurora v0.8.6 — Settings → Version Settings (experimental QA)
 
 [**Download v0.8.6 Android ARM64 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.6-version-settings-qa) · [GitHub Actions packaging and integrity audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39201191210)
