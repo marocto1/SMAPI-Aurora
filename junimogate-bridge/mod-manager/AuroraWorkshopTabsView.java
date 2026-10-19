@@ -13,6 +13,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import java.lang.ref.WeakReference;
 
 /**
  * Native workshop navigation inside the ORIGINAL stock Mods fragment.
@@ -20,6 +21,7 @@ import android.widget.TextView;
  * the compiled Xamarin/SMAPI .NET launcher or mod repository.
  */
 public final class AuroraWorkshopTabsView extends LinearLayout {
+    private static WeakReference<Activity> originalModsActivity = new WeakReference<>(null);
     public AuroraWorkshopTabsView(Context context) {
         this(context, null);
     }
@@ -63,9 +65,32 @@ public final class AuroraWorkshopTabsView extends LinearLayout {
 
     private void openWorkshop() {
         Context context = getContext();
+        originalModsActivity = new WeakReference<>(findActivity(context));
         Intent intent = new Intent(context, AuroraWorkshopActivity.class);
         if (findActivity(context) == null) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         context.startActivity(intent);
+    }
+
+    /**
+     * Return to the original C# Mods screen and invoke its existing import
+     * button, letting the STOCK ModArchiveInstallTransaction safely scan the
+     * user's picked ZIP. Never write directly into the mod library.
+     */
+    static boolean requestOriginalZipImport() {
+        Activity host = originalModsActivity.get();
+        if (host == null || host.isFinishing() || host.isDestroyed()) return false;
+        int importId = host.getResources().getIdentifier(
+            "mods_import", "id", host.getPackageName());
+        if (importId == 0) return false;
+        View root = host.getWindow().getDecorView();
+        root.postDelayed(() -> {
+            if (host.isFinishing() || host.isDestroyed()) return;
+            View button = host.findViewById(importId);
+            if (button != null && button.isShown() && button.isEnabled()) {
+                button.performClick(); // stock Aurora picker and transaction
+            }
+        }, 400L);
+        return true;
     }
 
     static Activity findActivity(Context context) {
