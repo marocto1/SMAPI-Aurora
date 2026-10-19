@@ -28,21 +28,34 @@ public final class AuroraWorkshopTabsView extends LinearLayout {
 
     public AuroraWorkshopTabsView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setOrientation(HORIZONTAL);
-        setGravity(Gravity.CENTER_VERTICAL);
+        setOrientation(VERTICAL);
         setPadding(dp(12), dp(4), dp(12), dp(4));
         setBackgroundColor(themeColor(context, "junimo_surface", 0xfff7f9f4));
 
+        LinearLayout primary = new LinearLayout(context);
+        primary.setOrientation(HORIZONTAL);
         TextView installed = tab("Установленные", true);
         installed.setContentDescription("Текущая вкладка: установленные моды");
-        addView(installed, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
-
-        TextView workshop = tab("Workshop  ↗", false);
-        workshop.setContentDescription("Открыть Workshop прямо в Aurora");
-        addView(workshop, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
+        primary.addView(installed, new LayoutParams(0, dp(46), 1));
+        TextView workshop = tab("Workshop", false);
+        workshop.setContentDescription("Workshop внутри Aurora");
+        primary.addView(workshop, new LayoutParams(0, dp(46), 1));
         workshop.setOnClickListener(v -> openWorkshop());
+        addView(primary,new LayoutParams(LayoutParams.MATCH_PARENT,dp(46)));
 
-        setContentDescription("Вкладки установленных модов и Nexus Workshop");
+        LinearLayout utilities=new LinearLayout(context);
+        utilities.setOrientation(HORIZONTAL);
+        TextView backups=tab("Backup & Restore",false);
+        TextView versions=tab("Версии игры",false);
+        utilities.addView(backups,new LayoutParams(0,dp(42),1));
+        utilities.addView(versions,new LayoutParams(0,dp(42),1));
+        addView(utilities,new LayoutParams(LayoutParams.MATCH_PARENT,dp(42)));
+        backups.setOnClickListener(v -> context.startActivity(
+            new Intent(context,AuroraBackupActivity.class)));
+        versions.setOnClickListener(v -> context.startActivity(
+            new Intent(context,AuroraVersionActivity.class)));
+
+        setContentDescription("Вкладки Aurora: моды, Workshop, резервные копии, версии игры");
     }
 
     private TextView tab(String text, boolean selected) {
