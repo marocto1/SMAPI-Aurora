@@ -207,11 +207,11 @@ def patch(root: Path) -> None:
 
     yml = apktool.read_text(encoding="utf-8")
     yml, count = re.subn(r"(?m)^(\s*versionCode:\s*)([^\n]+)$",
-                         lambda m: m[1] + "100", yml, count=1)
+                         lambda m: m[1] + "101", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionCode")
     yml, count = re.subn(r"(?m)^(\s*versionName:\s*)([^\n]+)$",
-                         lambda m: m[1] + "1.0.0-rc.1", yml, count=1)
+                         lambda m: m[1] + "1.0.0-rc.2", yml, count=1)
     if count != 1:
         raise ValueError("Missing APK versionName")
     apktool.write_text(yml, encoding="utf-8")
