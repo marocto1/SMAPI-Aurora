@@ -1,3 +1,16 @@
+## SMAPI Aurora v0.8.4 — comfort launch (experimental QA)
+
+[**Aurora v0.8.4 APK / release**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.4-comfort-launch-qa)
+
+This changes **Aurora's Java front-end**, not its bundled managed GameHost:
+
+- Makes **Играть с модами** the primary button: use the already installed game; no Drive download or reinstall is required merely to attempt a launch.
+- Adds a clearly labeled **Запустить обычную Stardew Valley** fallback.
+- Removes Aurora's own signer-mismatch hard-stop from the SMAPI launch and APKS installation buttons and hides technical certificate diagnostics from the default screen.
+- Keeps the optional in-app Google Drive APKS download flow from v0.8.3. A **private URL still needs one-time configuration if it was not already saved on the device**. The actual previously shared Google Drive file ID was not recoverable, and is not embedded in this public release.
+- Android still enforces package update signatures. The **unchanged JunimoGate GameHost** may still reject a game signed with a certificate other than its tested Play build with `game_certificate_unrecognized`. This front-end QA release does *not* fix that managed restriction, and has not passed an on-device modded launch.
+- This QA APK is signed with a new, disposable test key. It may be blocked as an in-place update to an earlier Aurora build. Back up saves, mods and private app data before any uninstall.
+
 ## SMAPI Aurora v0.8.3 — in-app Google Drive auto-download (QA)
 
 [**Download v0.8.3 Android ARM64 QA**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.3-drive-autodownload-qa).
