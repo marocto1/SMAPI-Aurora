@@ -1,0 +1,158 @@
+name: Aurora v0.8.3 Drive-auto-download Android16 SMAPI QA APK
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/version-manager/**'
+      - '.github/workflows/aurora-v083-drive-autodownload-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Locate Android SDK build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for x in aapt apksigner zipalign d8; do test -x "$BUILD_TOOLS/$x"; done
+          test -s "$ANDROID_HOME/platforms/android-35/android.jar"
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/aurora-v083/"{classes,newdex,dist}
+
+      - name: Fetch pinned v0.8.1 runtime and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v083/base.apk" \
+            https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.1-android16-split-fix-qa/SMAPI-Aurora-v0.8.1-Android16-Split-Fix-arm64-QA.apk
+          echo "a6b36d352efca3fc2f72a5a7bff150624d180c691c01cf52318ef438fbb29dd5  $RUNNER_TEMP/aurora-v083/base.apk" | sha256sum -c
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v083/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v083/apktool.jar" | sha256sum -c
+
+      - name: Compile SHA256 Drive-download UI for Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac --release 8 -encoding UTF-8 \
+            -cp "$ANDROID_HOME/platforms/android-35/android.jar" \
+            -d "$RUNNER_TEMP/aurora-v083/classes" \
+            junimogate-bridge/version-manager/AuroraVersionActivity.java
+          "$BUILD_TOOLS/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-35/android.jar" \
+            --output "$RUNNER_TEMP/aurora-v083/newdex" \
+            "$RUNNER_TEMP/aurora-v083/classes/org/junimogate/aurora/AuroraVersionActivity.class"
+          test -s "$RUNNER_TEMP/aurora-v083/newdex/classes.dex"
+          grep -q 'KNOWN_PLAY_CERT' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'explainSignatureMismatch' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'Signature[] current' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'fetchPersonalDriveArchive' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'installVerifiedBuild(Uri.fromFile(downloaded))' junimogate-bridge/version-manager/AuroraVersionActivity.java
+
+      - name: Replace only Java version-manager DEX and Android version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v083/apktool.jar" d \
+            -s -f "$RUNNER_TEMP/aurora-v083/base.apk" -o "$RUNNER_TEMP/aurora-v083/decoded"
+          test -s "$RUNNER_TEMP/aurora-v083/decoded/classes3.dex"
+          test -s "$RUNNER_TEMP/aurora-v083/decoded/lib/arm64-v8a/lib_JunimoGate.Android.dll.so"
+          cp "$RUNNER_TEMP/aurora-v083/newdex/classes.dex" \
+            "$RUNNER_TEMP/aurora-v083/decoded/classes3.dex"
+          python3 junimogate-bridge/version-manager/bump_repair_version.py \
+            "$RUNNER_TEMP/aurora-v083/decoded"
+
+      - name: Rebuild, align, sign diagnostic QA APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v083/apktool.jar" b \
+            "$RUNNER_TEMP/aurora-v083/decoded" \
+            -o "$RUNNER_TEMP/aurora-v083/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 \
+            "$RUNNER_TEMP/aurora-v083/unsigned.apk" "$RUNNER_TEMP/aurora-v083/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v083/aligned.apk"
+          export QA_KEY_PASS="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 \
+            -validity 3650 -dname "CN=SMAPI Aurora v0.8.3 Certificate QA,O=Marocto" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v083/key.p12" \
+            -storepass "$QA_KEY_PASS" -keypass "$QA_KEY_PASS" >/dev/null
+          APK="$RUNNER_TEMP/aurora-v083/dist/SMAPI-Aurora-v0.8.3-Drive-Autodownload-arm64-QA.apk"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/aurora-v083/key.p12" \
+            --ks-type PKCS12 --ks-key-alias aurora-qa \
+            --ks-pass env:QA_KEY_PASS --key-pass env:QA_KEY_PASS \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$APK" "$RUNNER_TEMP/aurora-v083/aligned.apk"
+          unset QA_KEY_PASS
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+      - name: Audit signature-aware installer and unchanged SMAPI binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v083/dist/SMAPI-Aurora-v0.8.3-Drive-Autodownload-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v083/app.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='14' versionName='0.8.3-drive-download-qa'" "$RUNNER_TEMP/aurora-v083/app.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.aurora.AuroraVersionActivity'" "$RUNNER_TEMP/aurora-v083/app.txt"
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" | grep -Fq 'android.permission.REQUEST_INSTALL_PACKAGES'
+          python3 - "$RUNNER_TEMP/aurora-v083/base.apk" "$APK" <<'PY'
+          import sys, zipfile, hashlib
+          with zipfile.ZipFile(sys.argv[1]) as old,zipfile.ZipFile(sys.argv[2]) as new:
+              assert old.testzip() is None and new.testzip() is None
+              a,b = set(old.namelist()),set(new.namelist())
+              assert a==b, f"APK payload changed name set: +{b-a}, -{a-b}"
+              # JAR v1 signature metadata is regenerated by apksigner.
+              changed = {name for name in a if not name.startswith("META-INF/") and old.read(name)!=new.read(name)}
+              allowed = {"classes3.dex","AndroidManifest.xml"}
+              assert changed<=allowed and "classes3.dex" in changed, f"Unexpected APK changes: {changed}"
+              assert len([n for n in b if n.startswith("assets/smapi-managed/")])>0
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.GameHost") for n in b)
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.Android") for n in b)
+              assert not any(n.lower().endswith('/stardewvalley.dll') for n in b)
+              print(f"PASS: only {sorted(changed)} changed; SMAPI, Android16 hotfix, all other managed/native code byte-for-byte preserved.")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v083/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Android Java SHA-256 signer check/repair guard compiled successfully." >> "$GITHUB_STEP_SUMMARY"
+          echo "SMAPI GameHost and Android16 split-source hotfix retained without changes." >> "$GITHUB_STEP_SUMMARY"
+          echo "NOT device tested; a differently-signed installed Stardew Valley must be replaced by the user after verifying backup, not by bypassing signature checks." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package warnings and installation guide
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/aurora-v083/dist/READ-ME-FIRST.txt" <<'EOF'
+          SMAPI Aurora v0.8.3 ARM64 QA
+          Includes v0.8.1 Android16 split APK preparation fix.
+          New: automatically downloads the user's configured Google Drive .apks in-app.\n          Keeps installed Stardew Valley Android signing certificate checks.
+          Shows SHA256 compared with the previously tested Google Play
+          signing identity. Refuses futile package replacement/install
+          attempts on mismatched identity, offers game app settings and
+          official Play listing. Does not uninstall/re-sign game or bypass SMAPI.
+
+          REAL DEVICE STATUS: NOT TESTED. This does not yet fix a mismatched
+          installed game certificate. Only the user's appropriately signed
+          game install can satisfy JunimoGate's identity checks.
+
+          The QA app key is ephemeral (different from v0.8.1), package name
+          is the same; Android may block updating an existing Aurora app.
+          Back up app-private content, mods/settings, and saves before any
+          uninstall. No paid APKs or personal Drive links are shipped with Aurora.
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.8.3-Drive-Autodownload-QA
+          path: ${{ runner.temp }}/aurora-v083/dist/
+          if-no-files-found: error
+          retention-days: 14
