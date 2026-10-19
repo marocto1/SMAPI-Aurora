@@ -57,7 +57,7 @@ def install(decoded:Path):
     config=decoded/"apktool.yml"
     cfg=config.read_text(encoding="utf-8")
     pattern=r"(?m)^(\s*versionCode:\s*)([^\n]+)$"
-    cfg,n=re.subn(pattern,r"\g<1>'12'",cfg,count=1)
+    cfg,n=re.subn(pattern,r"\g<1>12",cfg,count=1)
     if n!=1:raise ValueError("Unable to increment QA Android app versionCode")
     pattern=r"(?m)^(\s*versionName:\s*)([^\n]+)$"
     cfg,n=re.subn(pattern,r"\g<1>0.8.0-aurora-version-qa",cfg,count=1)
