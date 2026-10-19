@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           APK="$RUNNER_TEMP/aurora-v091/dist/SMAPI-Aurora-v0.9.1-Mod-Manager-arm64-QA.apk"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v091/badging.txt"
-          grep -Fq "package: name='org.junimogate.app' versionCode='21' versionName='0.9.1-mod-manager-qa'" "$RUNNER_TEMP/aurora-v091/badging.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='22' versionName='0.9.1-mod-manager-qa2'" "$RUNNER_TEMP/aurora-v091/badging.txt"
           grep -Fq "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-v091/badging.txt"
           "$BUILD_TOOLS/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -Fq 'AuroraModOverviewActivity'
           python3 - "$RUNNER_TEMP/aurora-v091/base.apk" "$APK" <<'PY'
@@ -92,7 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/aurora-v091/dist/READ-ME-FIRST.txt" <<'EOF'
-          Aurora v0.9.1 Mod Manager QA — Android ARM64.
+          Aurora v0.9.1 Mod Manager QA2 — Android ARM64.
           Standard Aurora Mods/Groups already supports ZIP import, groups,
           enable/disable, dependency fixing, config editing and deletion.
           NEW: LONG PRESS the Aurora app icon on your home screen, tap
@@ -105,11 +105,11 @@ jobs:
           QA signing key differs: do not uninstall prior Aurora before
           backing up private mods/settings/saves; don't uninstall the game.
           EOF
-          TAG=v0.9.1-mod-manager-qa
+          TAG=v0.9.1-mod-manager-qa2
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Existing signed QA artifact retained"
           else
-            gh release create "$TAG" "$RUNNER_TEMP/aurora-v091/dist/SMAPI-Aurora-v0.9.1-Mod-Manager-arm64-QA.apk" "$RUNNER_TEMP/aurora-v091/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v091/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v0.9.1 — Mod Manager QA" --notes "Experimental: original game/SMAPI and transactional Mods/Groups manager unchanged byte-for-byte; new read-only installed/active/mod-dependency overview via LONG PRESS Aurora app icon > Моды Aurora. Physical device startup not yet verified. QA signing differs; back up private app data before uninstall. No proprietary game files."
+            gh release create "$TAG" "$RUNNER_TEMP/aurora-v091/dist/SMAPI-Aurora-v0.9.1-Mod-Manager-arm64-QA.apk" "$RUNNER_TEMP/aurora-v091/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v091/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v0.9.1 — Mod Manager QA2" --notes "Experimental: original game/SMAPI and transactional Mods/Groups manager unchanged byte-for-byte; new read-only installed/active/mod-dependency overview via LONG PRESS Aurora app icon > Моды Aurora. Physical device startup not yet verified. QA signing differs; back up private app data before uninstall. No proprietary game files."
           fi
       - uses: actions/upload-artifact@v4
         with:
