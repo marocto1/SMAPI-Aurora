@@ -1,3 +1,24 @@
+## Android 16 crash fix — SMAPI Aurora v0.8.1 QA
+
+[**Download v0.8.1 Android 16 split APK preparation hotfix**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.1-android16-split-fix-qa).
+
+The user-provided `launcher-current.txt` isolated `game_preparation_failed` to
+`AndroidPackageInstallationSnapshotProvider.ReadSources()` with the exception
+`Split APK names and source paths are not aligned`, *before any game APK was opened*.
+Aurora's v0.8.1 APK recompiles **only** the Android package-source snapshot provider:
+it pairs `ApplicationInfo.SplitNames` with `ApplicationInfo.SplitSourceDirs`, as
+required by the Android SDK, with a strict count-checked fallback. No game
+signature/entitlement checks were relaxed. The existing Aurora v0.8 Java version
+manager, full SMAPI/GameHost runtime and all other APK code/resource contents
+were preserved byte-for-byte; CI verifies exactly one changed library.
+
+[CI build and APK integrity audit PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39190650579).
+**Real on-device startup remains unverified; the old preparation error should be
+retested.** The experimental APK has a different QA signing certificate from
+older Aurora/JunimoGate releases while retaining the same Android package name.
+Back up app-private data/mods/saves *before* any uninstall or replacement.
+[Detailed diagnostics and source patch](junimogate-bridge/ANDROID16_HOTFIX_NOTES.md).
+
 ## SMAPI Aurora v0.8 — version manager QA APK
 
 [**Download SMAPI Aurora v0.8.0 Version Manager + full SMAPI APK (123 MB)**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.0-version-manager-qa).
