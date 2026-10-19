@@ -259,8 +259,8 @@ public final class AuroraWorkshopActivity extends Activity {
 
     private void confirmDirectDownload(AuroraDirectDownloads.Entry entry) {
         new AlertDialog.Builder(this).setTitle(entry.name)
-            .setMessage(entry.description + "\\n\\nИсточник: " + entry.source +
-                "\\nВерсия: " + entry.version +
+            .setMessage(entry.description + "\n\nИсточник: " + entry.source +
+                "\nВерсия: " + entry.version +
                 "\\nSHA-256 проверяется перед сохранением. " +
                 "После загрузки Aurora откроет штатный импорт ZIP, где установка подтверждается отдельно.")
             .setPositiveButton("Скачать архив", (dialog, action) -> {
@@ -274,7 +274,7 @@ public final class AuroraWorkshopActivity extends Activity {
                         new AlertDialog.Builder(AuroraWorkshopActivity.this)
                             .setTitle("Архив загружен и проверен")
                             .setMessage("Мод ещё НЕ установлен. Архив в Загрузки/Aurora/" +
-                                filename + ".\\n\\nОткрыть стандартный безопасный установщик Aurora?")
+                                filename + ".\n\nОткрыть стандартный безопасный установщик Aurora?")
                             .setPositiveButton("Импортировать ZIP", (d, which) -> {
                                 boolean picker = AuroraWorkshopTabsView.requestOriginalZipImport();
                                 finish();
