@@ -1,0 +1,32 @@
+name: Aurora Android Split APK Installer C# QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/**'
+      - '.github/workflows/aurora-split-installer-compile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.312'
+      - name: Install Android SDK bindings
+        run: dotnet workload install android --skip-manifest-update
+      - name: Compile actual Android PackageInstaller code without commercial game binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build junimogate-bridge/AuroraSplitApkInstaller.QA.csproj -c Release \
+            --framework net9.0-android35.0 --verbosity minimal --nologo
+          test -s junimogate-bridge/bin/Release/net9.0-android35.0/AuroraSplitApkInstaller.QA.dll
+          echo 'Android split installer compiles; phone installation behavior remains untested.' >> "$GITHUB_STEP_SUMMARY"
