@@ -40,8 +40,6 @@ RU = {
 ACTIVITY_SRC = """
     // Version selection never silently installs software or downloads paid game APKs.
     private const int AuroraGameApkRequestCode = 4902;
-    private View? auroraVersionButton;
-
     private void OnAuroraGameVersionsClicked(object? sender, EventArgs args)
     {
         var dialog = new Google.Android.Material.Dialog.MaterialAlertDialogBuilder(RequireContext());
