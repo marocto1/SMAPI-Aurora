@@ -42,7 +42,7 @@ class GameVersionUiTests(unittest.TestCase):
         self.assertIn("HomeFragment.cs",src)
         self.assertIn("fragment_home.xml",src)
         self.assertIn("AndroidManifest.xml",src)
-        self.assertIn("values-ru/strings.xml",src)
+        self.assertIn('("values", EN), ("values-ru", RU)',src)
         self.assertIn("android.permission.REQUEST_INSTALL_PACKAGES",src)
         self.assertIn("@+id/aurora_game_versions",src)
 
