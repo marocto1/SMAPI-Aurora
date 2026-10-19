@@ -121,6 +121,11 @@ public final class AuroraWorkshopActivity extends Activity {
         controlParams.topMargin = dp(6);
         page.addView(controls, controlParams);
 
+        Button curated = button("Проверенные моды · Скачать из GitHub", this::showCuratedMods);
+        LinearLayout.LayoutParams curatedParams = new LinearLayout.LayoutParams(-1, dp(50));
+        curatedParams.topMargin = dp(7);
+        page.addView(curated, curatedParams);
+
         status = label("Nexus Mods открывается внутри Aurora. Без API и без входа через Aurora.", 12, muted);
         status.setPadding(dp(4), dp(8), dp(4), dp(5));
         page.addView(status);
@@ -235,6 +240,62 @@ public final class AuroraWorkshopActivity extends Activity {
         } catch (ActivityNotFoundException e) {
             status.setText("Нет браузера для открытия ссылки.");
         }
+    }
+
+    /** Only author-controlled direct links with pinned SHA-256 enter this flow. */
+    private void showCuratedMods() {
+        AuroraDirectDownloads.Entry[] available = AuroraDirectDownloads.CURATED;
+        String[] labels = new String[available.length];
+        for (int i = 0; i < available.length; i++) {
+            labels[i] = available[i].name + " · v" + available[i].version;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Проверенные моды · GitHub")
+            .setMessage("Этот каталог содержит только разрешённые публичные ZIP-архивы с зафиксированной SHA-256. " +
+                "Список пока тестовый; обычные моды с Nexus доступны в браузере выше.")
+            .setItems(labels, (dialog, index) -> confirmDirectDownload(available[index]))
+            .setNegativeButton("Назад", null).show();
+    }
+
+    private void confirmDirectDownload(AuroraDirectDownloads.Entry entry) {
+        new AlertDialog.Builder(this).setTitle(entry.name)
+            .setMessage(entry.description + "\\n\\nИсточник: " + entry.source +
+                "\\nВерсия: " + entry.version +
+                "\\nSHA-256 проверяется перед сохранением. " +
+                "После загрузки Aurora откроет штатный импорт ZIP, где установка подтверждается отдельно.")
+            .setPositiveButton("Скачать архив", (dialog, action) -> {
+                status.setText("Загрузка " + entry.name + "…");
+                AuroraDirectDownloads.download(this, entry, new AuroraDirectDownloads.Listener() {
+                    @Override public void onProgress(String message) {
+                        status.setText(message);
+                    }
+                    @Override public void onReady(Uri uri, String filename) {
+                        status.setText("ZIP проверен и сохранён: Загрузки/Aurora/" + filename);
+                        new AlertDialog.Builder(AuroraWorkshopActivity.this)
+                            .setTitle("Архив загружен и проверен")
+                            .setMessage("Мод ещё НЕ установлен. Архив в Загрузки/Aurora/" +
+                                filename + ".\\n\\nОткрыть стандартный безопасный установщик Aurora?")
+                            .setPositiveButton("Импортировать ZIP", (d, which) -> {
+                                boolean picker = AuroraWorkshopTabsView.requestOriginalZipImport();
+                                finish();
+                                if (!picker) {
+                                    android.widget.Toast.makeText(getApplicationContext(),
+                                        "Открой Моды → Импорт и выбери ZIP из Загрузки/Aurora",
+                                        android.widget.Toast.LENGTH_LONG).show();
+                                }
+                            })
+                            .setNegativeButton("Позже", null).show();
+                    }
+                    @Override public void onFailure(String message) {
+                        status.setText(message);
+                        new AlertDialog.Builder(AuroraWorkshopActivity.this)
+                            .setTitle("Не удалось скачать")
+                            .setMessage(message)
+                            .setPositiveButton("Закрыть", null).show();
+                    }
+                });
+            })
+            .setNegativeButton("Отмена", null).show();
     }
 
     private void showImport() {
