@@ -1,3 +1,13 @@
+## SMAPI Aurora v0.8.6 — Settings → Version Settings (experimental QA)
+
+[**Download v0.8.6 Android ARM64 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.6-version-settings-qa) · [GitHub Actions packaging and integrity audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39201191210)
+
+The Aurora **Java entry screen** now includes an actual navigable `Настройки` → `Настройки версий` page, not just a diagnostic button on the home page. It displays the installed Stardew version, catalogues the one currently SHA-256-verified `1.6.15.3 build 245` ARM64 archive, and provides the existing in-app Google Drive downloader, source configuration, and local `.apks` installer. The home screen retains **Играть с модами**, which does not require a game download.
+
+**Important scope:** this is Aurora's outer Java Settings screen. The separately bundled native/managed `JunimoGate.App` Settings tab is **not modified** by this QA release. The existing v0.8.5 installed-game Core policy, SMAPI/GameHost and Android 16 split fix remain unchanged, confirmed by the payload audit. Other game versions are not falsely marked compatible.
+
+Optional Drive download still needs a previously configured personal source. The previously shared exact Drive URL could not be recovered from the available project state and is not embedded in the public APK. Game execution/device gameplay remains unverified. New disposable QA signing keys may prevent in-place updates of earlier Aurora releases. Back up saves, mods and launcher settings before changing the installed launcher.
+
 ## SMAPI Aurora v0.8.5 — user-installed Stardew Valley compatibility (experimental QA)
 
 [**Download the v0.8.5 Android ARM64 APK**](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v0.8.5-installed-game-qa) · [GitHub Actions build & APK payload audit](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39199603931)
