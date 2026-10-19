@@ -96,9 +96,14 @@ jobs:
           assert manifest["EntryDll"]==binary.name
           assert manifest["MinimumApiVersion"]=="4.5.2"
           payload=binary.read_bytes()
-          assert payload[:2]==b"MZ" and b"AURORA_SMOKE_ENTRY" in payload
-          assert b"AURORA_SMOKE_GAME_LAUNCHED" in payload
-          assert b"AURORA_SMOKE_SAVE_LOADED" in payload
+          assert payload[:2]==b"MZ"
+          # .NET stores C# string literals in its #US heap as UTF-16LE.
+          # Both forms are accepted for future compiler metadata changes.
+          def has_marker(m):
+              return m.encode("utf-16le") in payload or m.encode("ascii") in payload
+          assert has_marker("AURORA_SMOKE_ENTRY"), "Compiled mod entry marker missing"
+          assert has_marker("AURORA_SMOKE_GAME_LAUNCHED"), "Game launch event marker missing"
+          assert has_marker("AURORA_SMOKE_SAVE_LOADED"), "Save-loaded marker missing"
           output=dist/"Aurora-SMAPI-Smoke-Mod-v1.0.0.zip"
           with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
               z.write(root/"manifest.json","Aurora SMAPI Smoke/manifest.json")
