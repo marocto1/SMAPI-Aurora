@@ -1,0 +1,190 @@
+name: Aurora v0.8.5 installed-game SMAPI Core compatibility QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/allow_installed_signer.py'
+      - 'junimogate-bridge/version-manager/rewrap_managed_core_elf.py'
+      - 'junimogate-bridge/version-manager/bump_repair_version.py'
+      - '.github/workflows/aurora-v085-installed-game-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: leontismaro/JunimoGate
+          ref: 029eafed917ae853d6c0a59330ee273524168296
+          path: junimogate-upstream
+          submodules: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build single-signer user-installed compatibility Core (no game files)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 junimogate-bridge/allow_installed_signer.py junimogate-upstream --apply
+          dotnet build junimogate-upstream/src/JunimoGate.Core/JunimoGate.Core.csproj \
+            -c Release --nologo -v minimal
+          DLL="$GITHUB_WORKSPACE/junimogate-upstream/src/JunimoGate.Core/bin/Release/net9.0/JunimoGate.Core.dll"
+          test -s "$DLL"
+          echo "PATCHED_CORE=$DLL" >> "$GITHUB_ENV"
+          echo "The changed assembly is JunimoGate.Core only; no paid game assemblies were compiled or bundled." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fetch pinned intact Aurora v0.8.4 APK and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-v085/"{dist,staged}
+          curl -fL --retry 3 --silent --show-error -o "$RUNNER_TEMP/aurora-v085/base.apk" \
+            https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.4-comfort-launch-qa/SMAPI-Aurora-v0.8.4-Comfort-Launcher-arm64-QA.apk
+          echo "e3a28e5c8a3b82e0b83bb27086dbb99e8138110ab503d433ec00758383c78157  $RUNNER_TEMP/aurora-v085/base.apk" | sha256sum -c
+          curl -fL --retry 3 --silent --show-error -o "$RUNNER_TEMP/aurora-v085/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v085/apktool.jar" | sha256sum -c
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+
+      - name: Replace only JunimoGate.Core managed ELF in full GameHost APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v085/apktool.jar" d -s -f \
+            "$RUNNER_TEMP/aurora-v085/base.apk" -o "$RUNNER_TEMP/aurora-v085/decoded"
+          CORE_ELF="$RUNNER_TEMP/aurora-v085/decoded/lib/arm64-v8a/lib_JunimoGate.Core.dll.so"
+          test -s "$CORE_ELF"
+          cp "$CORE_ELF" "$RUNNER_TEMP/aurora-v085/staged/original-core.so"
+          python3 junimogate-bridge/version-manager/rewrap_managed_core_elf.py \
+            "$RUNNER_TEMP/aurora-v085/staged/original-core.so" "$PATCHED_CORE" \
+            "$RUNNER_TEMP/aurora-v085/staged/patched-core.so"
+          cp "$RUNNER_TEMP/aurora-v085/staged/patched-core.so" "$CORE_ELF"
+          readelf -S "$CORE_ELF" | grep -F payload
+          python3 junimogate-bridge/version-manager/bump_repair_version.py \
+            "$RUNNER_TEMP/aurora-v085/decoded"
+
+      - name: Rebuild, align and sign Android ARM64 QA APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v085/apktool.jar" b \
+            "$RUNNER_TEMP/aurora-v085/decoded" -o "$RUNNER_TEMP/aurora-v085/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 \
+            "$RUNNER_TEMP/aurora-v085/unsigned.apk" "$RUNNER_TEMP/aurora-v085/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v085/aligned.apk"
+          export QA_PASS="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 \
+            -validity 3650 -dname "CN=SMAPI Aurora v0.8.5 Compatible Game QA,O=Marocto" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v085/key.p12" \
+            -storepass "$QA_PASS" -keypass "$QA_PASS" >/dev/null
+          APK="$RUNNER_TEMP/aurora-v085/dist/SMAPI-Aurora-v0.8.5-Installed-Game-arm64-QA.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurora-v085/key.p12" \
+            --ks-type PKCS12 --ks-key-alias aurora-qa \
+            --ks-pass env:QA_PASS --key-pass env:QA_PASS \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$APK" "$RUNNER_TEMP/aurora-v085/aligned.apk"
+          unset QA_PASS
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+      - name: Verify runtime unchanged except Core policy and app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v085/dist/SMAPI-Aurora-v0.8.5-Installed-Game-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v085/app.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='16' versionName='0.8.5-installed-game-qa'" "$RUNNER_TEMP/aurora-v085/app.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.aurora.AuroraVersionActivity'" "$RUNNER_TEMP/aurora-v085/app.txt"
+          python3 - "$RUNNER_TEMP/aurora-v085/base.apk" "$APK" "$PATCHED_CORE" <<'PY'
+          from pathlib import Path
+          import sys,zipfile,struct
+          old,new,dll=map(Path,sys.argv[1:])
+          core="lib/arm64-v8a/lib_JunimoGate.Core.dll.so"
+          with zipfile.ZipFile(old) as a,zipfile.ZipFile(new) as b:
+              assert a.testzip() is None and b.testzip() is None
+              na,nb=set(a.namelist()),set(b.namelist())
+              assert na==nb, f"Unexpected asset additions/removals: {na^nb}"
+              changes={x for x in na if not x.startswith("META-INF/") and a.read(x)!=b.read(x)}
+              assert changes=={core,"AndroidManifest.xml"},f"Unexpected payload changes: {changes}"
+              data=b.read(core)
+              assert data[:4]==b"\x7fELF"
+              shoff=struct.unpack_from("<Q",data,0x28)[0]
+              shsz=struct.unpack_from("<H",data,0x3a)[0]
+              shnum=struct.unpack_from("<H",data,0x3c)[0]
+              stridx=struct.unpack_from("<H",data,0x3e)[0]
+              hdr=shoff+stridx*shsz
+              strstart,strsize=struct.unpack_from("<QQ",data,hdr+24)
+              strings=data[strstart:strstart+strsize]
+              found=[]
+              for i in range(shnum):
+                  start=shoff+i*shsz
+                  off=struct.unpack_from("<I",data,start)[0]
+                  name=strings[off:].split(b"\0")[0]
+                  if name==b"payload":
+                      offset,length=struct.unpack_from("<QQ",data,start+24)
+                      found.append(data[offset:offset+length])
+              assert found==[dll.read_bytes()], "Core ELF payload does not exactly equal verified built Core DLL"
+              assert "lib/arm64-v8a/lib_JunimoGate.GameHost.dll.so" in nb
+              assert any(x.startswith("assets/smapi-managed/") for x in nb)
+              assert not any(x.lower().endswith("/stardewvalley.dll") for x in nb)
+              print("PASS: only JunimoGate.Core ELF and AndroidManifest changed; embedded Core DLL matches build exactly")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v085/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "PASS: recompiled JunimoGate.Core replaces pinned Play-only signer code path with a single Android-verified installed-signature policy." >> "$GITHUB_STEP_SUMMARY"
+          echo "NOT device-tested: game extraction, modded play, and other compatibility limits remain unverified." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Add README for safe testing
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/aurora-v085/dist/READ-ME-FIRST.txt" <<'EOF'
+          SMAPI Aurora v0.8.5 ARM64 EXPERIMENTAL QA
+          SOURCE POLICY: rebuilt JunimoGate.Core to accept Android-installed
+          single-signer com.chucklefish.stardewvalley even when the signer
+          differs from the Play certificate tested by JunimoGate.
+          Android package signatures and structural/content checks remain.
+          An unknown signer is not proof that the game is authentic or safe.
+          No proprietary game DLLs/APKs are bundled or downloaded from Aurora.
+          The existing SMAPI/GameHost, Android16 fix and launcher are kept.
+
+          IMPORTANT: No successful on-device game run yet verified.
+          Avoid installing untrusted APKs. Back up saves, mods and launcher
+          settings before replacing applications. QA APK uses a new
+          disposable signature; Android may block an in-place upgrade.
+          Google Drive still requires a configured private source for downloads,
+          but installed games can be launched without downloading again.
+          EOF
+
+      - name: Publish experimental v0.8.5 GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=v0.8.5-installed-game-qa
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Existing release retained; do not mutate a signed APK."
+          else
+            gh release create "$TAG" \
+              "$RUNNER_TEMP/aurora-v085/dist/SMAPI-Aurora-v0.8.5-Installed-Game-arm64-QA.apk" \
+              "$RUNNER_TEMP/aurora-v085/dist/SHA256SUMS.txt" \
+              "$RUNNER_TEMP/aurora-v085/dist/READ-ME-FIRST.txt" \
+              --prerelease --title "SMAPI Aurora v0.8.5 — user-installed game compatibility QA" \
+              --notes "Experimental Android ARM64 APK with rebuilt JunimoGate.Core to accept Android-verified single-signer installed com.chucklefish.stardewvalley without restricting it to the tested Google Play signer. Still requires structural/ABI validation and Android installation safety. Original GameHost/SMAPI/Android16 fix preserved. No paid game data bundled. Not tested on the affected Android device. Private Drive file link remains unconfigured; installed games need not be downloaded. Back up before uninstall, QA signing changes each release."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.8.5-Installed-Game-QA
+          path: ${{ runner.temp }}/aurora-v085/dist/
+          if-no-files-found: error
+          retention-days: 14
