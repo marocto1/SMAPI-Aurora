@@ -78,7 +78,8 @@ public final class AuroraVersionActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
-        if (state != null) currentPage = state.getInt(STATE_PAGE, PAGE_HOME);
+        currentPage = state != null ? state.getInt(STATE_PAGE, PAGE_HOME)
+            : getIntent().getIntExtra(INTENT_PAGE, PAGE_HOME);
         if (currentPage < PAGE_HOME || currentPage > PAGE_VERSIONS) currentPage = PAGE_HOME;
         buildScreen();
         processInstallCallback(getIntent());
@@ -97,6 +98,7 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     private static final String STATE_PAGE = "aurora-page";
+    private static final String INTENT_PAGE = "aurora-start-page";
     private static final int PAGE_HOME = 0;
     private static final int PAGE_SETTINGS = 1;
     private static final int PAGE_VERSIONS = 2;
