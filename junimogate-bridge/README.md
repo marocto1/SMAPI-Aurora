@@ -18,6 +18,8 @@ No commercial game files are included or distributed.
 
 - [Pinned source overlay and XML integration PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176471760) — validates original JunimoGate commit, Aurora resource links, app identity, Russian selector, and that game/runtime/license files stay untouched.
 - [Platform-neutral JunimoGate host suites PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176757497) — separately compiles and executes the public-dependency Core, Extraction, Rewriter and Mods tests after applying the Aurora overlay.
+- [GameHost C# dependency and safe private-reference audit PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39180105179) — verifies the pinned SMAPI GameHost contract, no modifications to the native SMAPI execution path, the five commercial game libraries' non-packaging flags, and private ZIP security tests.
+- [Complete GameHost build workflow](../.github/workflows/junimogate-gamehost.yml) — prepares pinned JunimoGate/SMAPI/native dependencies, performs an actual **Release Android arm64** compilation only when a compatible **private Android reference bundle** and SHA-256 are explicitly configured, and quarantines any built APK as `UNVERIFIED` until on-device testing. It never automatically publishes a production Release.
 - [Android AAPT2 resource compilation PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39179286868) — Android SDK compiles Aurora's Material3 assets, icon and Russian locale; checks contrast for light OS themes and >=280 translated keys.
 - [Android .NET C# integration library compilation PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39179163408) — the pinned JunimoGate Android boundary and its host-side project references build on .NET 9 Android (without game-derived references).
 - **Not yet built/tested:** runnable Aurora + JunimoGate game-host APK, SMAPI startup, installed-game signer compatibility or mod loading on a real device.
@@ -60,6 +62,43 @@ python3 junimogate-bridge/apply_aurora.py .aurora-build/JunimoGate --apply
 The application overlay refuses to patch a source tree at another commit or
 with local modifications. It modifies only `src/JunimoGate.App/`. Upstream
 game execution checks and signing identity policies are **not** bypassed.
+
+## Full GameHost build readiness
+
+The source/test gate is automated in [Aurora JunimoGate GameHost build](../.github/workflows/junimogate-gamehost.yml).
+It runs independently of any private game files and confirms the original JunimoGate
+SMAPI GameHost and Android code assembly boundary are unchanged by Aurora.
+
+To compile the **actual** GameHost, upstream requires five Android **compile-only**
+game references (all from a compatible, lawfully installed Android version):
+
+| File | Used by |
+|---|---|
+| `StardewValley.dll` | JunimoGate.GameHost and SMAPI |
+| `StardewValley.GameData.dll` | SMAPI |
+| `BmFont.dll` | SMAPI |
+| `Lidgren.Network.dll` | SMAPI |
+| `xTile.dll` | SMAPI |
+
+**MonoGame.Framework.Android** and **Lib.Harmony** are built from pinned open-source
+sources in JunimoGate's own build scripts; don't substitute the PC MonoGame DLL.
+
+The full build is deliberately gated by Actions secrets
+`AURORA_JUNIMO_GAME_REFS_URL` (private time-limited HTTPS ZIP URL) and
+`AURORA_JUNIMO_GAME_REFS_SHA256` (hex SHA256 of the ZIP).
+Only the exact five expected managed DLLs may be present, in the root or
+`DependenciesDll/`. The private reference checker refuses extra entries,
+ZIP traversal, symlinks, duplicate names, decompression bombs and non-.NET PE
+files. All references are staged under the runner temporary directory, used only
+for compilation, and removed before the job ends. There is no automatic
+game download or third-party asset redistribution.
+
+**Status: full GameHost compilation remains blocked** because compatible private
+Android references aren't configured. Two previously shared .NET 6 desktop DLLs
+are not sufficient. CI does not silently pretend this is success. Once the
+prerequisites exist, the full job can be started via GitHub Actions'
+`build_full` option. A built APK must still pass Android/device/SMAPI gameplay QA
+and will never be labeled a finished release automatically.
 
 ## Binary and Android test blockers
 
