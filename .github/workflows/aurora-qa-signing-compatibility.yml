@@ -1,0 +1,37 @@
+name: Aurora QA Signing Compatibility Guard
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/signing/**'
+      - '.github/workflows/aurora-qa-signing-compatibility.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify regression tests
+        run: python3 -m unittest discover -s junimogate-bridge/signing -p 'test_*.py' -v
+      - name: Fetch pinned APKs and confirm their immutable integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-signing"
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/aurora-signing/old.apk" https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.9-boot-recovery-qa/SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/aurora-signing/new.apk" https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.9.5-direct-download-qa/SMAPI-Aurora-v0.9.5-Verified-Download-arm64-QA.apk
+          echo "8b1a87249b7169b7f5dc40d8dcec9e9efc0f4eb84178ecb6ce9c3c5c638f0b60  $RUNNER_TEMP/aurora-signing/old.apk" | sha256sum -c
+          echo "bb8d44ba334bbf9288ad8231f9a02f6a6b0cbaa3ad55988f73183db694f3abea  $RUNNER_TEMP/aurora-signing/new.apk" | sha256sum -c
+      - name: Block unsafe in-place upgrade across QA certificates
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          python3 junimogate-bridge/signing/verify_upgrade.py \
+            "$RUNNER_TEMP/aurora-signing/old.apk" \
+            "$RUNNER_TEMP/aurora-signing/new.apk" \
+            --apksigner "$B/apksigner" --aapt "$B/aapt" --expect-mismatch
+          echo 'PASS: no false promise of data-safe in-place upgrade to v0.9.5.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Switching signing keys requires user data export/restore; do not uninstall the stable app before backup.' >> "$GITHUB_STEP_SUMMARY"
