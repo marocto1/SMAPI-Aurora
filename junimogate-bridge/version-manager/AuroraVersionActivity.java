@@ -34,6 +34,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.HttpURLConnection;
+import java.util.List;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -118,9 +121,9 @@ public final class AuroraVersionActivity extends Activity {
             gameVersion() + "\n" + formatCertificateStatus(),
             12, MINT, Typeface.NORMAL, 10);
         button(build, "Проверить подпись установленной игры", false, this::showCertificateDetails);
-        button(build, "Скачать из моего Google Диска", true, this::openSavedLink);
-        button(build, "Указать личную ссылку", false, this::editSavedLink);
-        button(build, "Выбрать скачанный .apks и установить", false, this::chooseArchive);
+        button(build, "Скачать и установить автоматически", true, this::downloadAndInstallFromDrive);
+        button(build, "Настроить личный источник", false, this::editSavedLink);
+        button(build, "Импортировать локальный .apks (резервный способ)", false, this::chooseArchive);
         button(build, "Обновить игру в Google Play", false, this::openGooglePlay);
         button(build, "Настройки установленной Stardew Valley", false, this::openGameAppDetails);
 
@@ -360,17 +363,153 @@ public final class AuroraVersionActivity extends Activity {
                 String text = entry.getText().toString().trim();
                 if (!validDriveUrl(text)) { toast("Необходима ссылка drive.google.com/file/d/..."); return; }
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(SOURCE_KEY, text).apply();
-                report("Личная ссылка сохранена");
+                report("Источник сохранён — кнопка загрузки скачает и проверит архив автоматически");
             }).show();
     }
-    private void openSavedLink() {
-        String url = savedLink();
-        if (!validDriveUrl(url)) { editSavedLink(); return; }
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-            report("После скачивания открой .apks через кнопку установки");
-        } catch (Exception e) { report("Не удалось открыть Google Диск"); }
+    /** Automatically retrieve the owner's own .apks source without a browser or file picker.
+     * The personal source is stored on-device, not hard-coded into public APKs.
+     * HTTPS certificate and redirect host validation remain enabled.
+     */
+    private void downloadAndInstallFromDrive() {
+        String source = savedLink();
+        if (!validDriveUrl(source)) {
+            report("Для этой установки личный источник ещё не настроен.");
+            editSavedLink();
+            return;
+        }
+        if ("mismatch".equals(installedGameIdentity()[0])) {
+            explainSignatureMismatch();
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            new AlertDialog.Builder(this)
+                .setTitle("Разрешение Android")
+                .setMessage("Разреши Aurora запрашивать установку APK. Android всё равно потребует твоего подтверждения.")
+                .setNegativeButton("Отмена", null)
+                .setPositiveButton("Настройки", (d, w) -> startActivity(new Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName()))))
+                .show();
+            return;
+        }
+        busy = true;
+        new Thread(() -> {
+            File downloaded = null;
+            try {
+                downloaded = fetchPersonalDriveArchive(source);
+                installVerifiedBuild(Uri.fromFile(downloaded));
+                report("SHA-256 проверен; Android запросит подтверждение установки");
+            } catch (Exception e) {
+                report("Загрузка/установка не удалась: " + e.getMessage());
+            } finally {
+                if (downloaded != null && downloaded.exists() && !downloaded.delete())
+                    downloaded.deleteOnExit();
+                busy = false;
+            }
+        }, "AuroraDriveDownload").start();
     }
+
+    private void downloadProgress(String msg) {
+        main.post(() -> { if (status != null) status.setText(msg); });
+    }
+
+    private boolean approvedDownloadHost(String host) {
+        if (host == null) return false;
+        host = host.toLowerCase(java.util.Locale.ROOT);
+        return host.equals("drive.google.com")
+            || host.equals("drive.usercontent.google.com")
+            || host.equals("docs.google.com")
+            || host.equals("googleusercontent.com")
+            || host.endsWith(".googleusercontent.com");
+    }
+
+    private File fetchPersonalDriveArchive(String source) throws Exception {
+        if (!validDriveUrl(source))
+            throw new IOException("Неверный адрес Google Drive");
+        List<String> segments = Uri.parse(source).getPathSegments();
+        if (segments.size() < 3 || !"file".equals(segments.get(0)) ||
+            !"d".equals(segments.get(1)) || !segments.get(2).matches("[A-Za-z0-9_-]{10,}"))
+            throw new IOException("Не найден идентификатор файла Google Drive");
+        String id = segments.get(2);
+        String link = "https://drive.usercontent.google.com/download?id=" +
+            id + "&export=download&confirm=t";
+        File temp = File.createTempFile("aurora-drive-", ".apks", getCacheDir());
+        boolean complete = false;
+        try {
+            downloadProgress("Подключение к Google Drive…");
+            for (int redirect = 0; redirect < 9; redirect++) {
+                URL endpoint = new URL(link);
+                if (!"https".equalsIgnoreCase(endpoint.getProtocol()) ||
+                    !approvedDownloadHost(endpoint.getHost()))
+                    throw new IOException("Небезопасное перенаправление Google Drive");
+                HttpURLConnection connection = (HttpURLConnection) endpoint.openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(120000);
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 SMAPI-Aurora/0.8.3");
+                try {
+                    int code = connection.getResponseCode();
+                    if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
+                        String next = connection.getHeaderField("Location");
+                        if (next == null) throw new IOException("Перенаправление без адреса");
+                        link = new URL(endpoint, next).toString();
+                        continue;
+                    }
+                    if (code != 200) {
+                        if (code == 403) throw new IOException("Нет доступа к файлу Google Drive");
+                        if (code == 404) throw new IOException("Файл Google Drive не найден");
+                        throw new IOException("Google Drive вернул HTTP " + code);
+                    }
+                    String mime = connection.getContentType();
+                    if (mime != null && (mime.toLowerCase(java.util.Locale.ROOT).contains("text/html")
+                        || mime.toLowerCase(java.util.Locale.ROOT).contains("application/json")))
+                        throw new IOException("Google Drive требует входа или подтверждения; нужна доступная прямая ссылка");
+                    long expected = connection.getContentLengthLong();
+                    if (expected > MAX_ARCHIVE)
+                        throw new IOException("Файл превышает лимит безопасной загрузки");
+                    long received = 0;
+                    int lastPercent = -1;
+                    try (InputStream in = connection.getInputStream();
+                         OutputStream out = new FileOutputStream(temp)) {
+                        byte[] buffer = new byte[131072];
+                        int n;
+                        while ((n = in.read(buffer)) != -1) {
+                            received += n;
+                            if (received > MAX_ARCHIVE)
+                                throw new IOException("Файл больше ожидаемого размера");
+                            out.write(buffer, 0, n);
+                            if (expected > 0) {
+                                int percent = (int) Math.min(100, (received * 100) / expected);
+                                if (percent / 5 != lastPercent / 5) {
+                                    lastPercent = percent;
+                                    downloadProgress("Загрузка .apks из Google Drive: " + percent + "%");
+                                }
+                            } else if (received % (5 * 1024 * 1024) < n) {
+                                downloadProgress("Загружено: " + (received / (1024 * 1024)) + " МБ");
+                            }
+                        }
+                    }
+                    if (expected > 0 && received != expected)
+                        throw new IOException("Загрузка прервана: получен неполный архив");
+                    if (received < 200_000_000)
+                        throw new IOException("Слишком маленький файл: вероятно, Drive прислал страницу вместо .apks");
+                    try (java.io.RandomAccessFile check = new java.io.RandomAccessFile(temp, "r")) {
+                        if (check.readUnsignedByte() != 'P' || check.readUnsignedByte() != 'K')
+                            throw new IOException("Google Drive вернул не ZIP/APKS архив");
+                    }
+                    downloadProgress("Архив скачан. Проверка трёх APK и SHA-256…");
+                    complete = true;
+                    return temp;
+                } finally {
+                    connection.disconnect();
+                }
+            }
+            throw new IOException("Слишком много перенаправлений Google Drive");
+        } finally {
+            if (!complete && temp.exists()) temp.delete();
+        }
+    }
+
     private void chooseArchive() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
