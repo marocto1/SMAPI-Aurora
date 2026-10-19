@@ -5,7 +5,7 @@ on:
       - 'junimogate-bridge/mod-manager/**'
       - 'junimogate-bridge/v1/**'
       - 'junimogate-bridge/version-manager/**'
-      - '.github/workflows/aurora-v1002-rc2.yml'
+      - '.github/workflows/aurora-v100-rc2.yml'
   workflow_dispatch:
 permissions:
   contents: write
