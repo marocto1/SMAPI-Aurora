@@ -116,6 +116,12 @@ public final class AuroraModOverviewActivity extends Activity {
         reloadParams.leftMargin = dp(8);
         actions.addView(reload, reloadParams);
         page.addView(actions);
+
+        Button workshop = button("Workshop  ·  Nexus Mods");
+        LinearLayout.LayoutParams workshopParams = new LinearLayout.LayoutParams(-1, dp(50));
+        workshopParams.bottomMargin = dp(12);
+        page.addView(workshop, workshopParams);
+        workshop.setOnClickListener(view -> startActivity(new Intent(this, AuroraWorkshopActivity.class)));
         manager.setOnClickListener(view -> {
             Intent main = new Intent();
             main.setClassName(getPackageName(), "org.junimogate.app.MainActivity");
