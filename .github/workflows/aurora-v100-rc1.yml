@@ -60,7 +60,7 @@ jobs:
       - name: Compile read-only dashboard alongside unchanged version manager
         run: |
           set -euo pipefail
-          javac --release 8 -encoding UTF-8 -cp "$ANDROID_HOME/platforms/android-35/android.jar" -d "$RUNNER_TEMP/aurora-v100/classes" junimogate-bridge/version-manager/AuroraVersionActivity.java junimogate-bridge/mod-manager/AuroraModOverviewActivity.java junimogate-bridge/mod-manager/AuroraWorkshopActivity.java junimogate-bridge/mod-manager/AuroraWorkshopTabsView.java junimogate-bridge/mod-manager/AuroraDirectDownloads.java
+          javac --release 8 -encoding UTF-8 -cp "$ANDROID_HOME/platforms/android-35/android.jar" -d "$RUNNER_TEMP/aurora-v100/classes" junimogate-bridge/version-manager/AuroraVersionActivity.java junimogate-bridge/mod-manager/AuroraModOverviewActivity.java junimogate-bridge/mod-manager/AuroraWorkshopActivity.java junimogate-bridge/mod-manager/AuroraWorkshopTabsView.java junimogate-bridge/mod-manager/AuroraDirectDownloads.java junimogate-bridge/v1/AuroraBackupActivity.java
           find "$RUNNER_TEMP/aurora-v100/classes" -name '*.class' -print0 | xargs -0 "$BUILD_TOOLS/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-35/android.jar" --output "$RUNNER_TEMP/aurora-v100/newdex"
           test -s "$RUNNER_TEMP/aurora-v100/newdex/classes.dex"
       - name: Inject shortcut into untouched v0.8.9
