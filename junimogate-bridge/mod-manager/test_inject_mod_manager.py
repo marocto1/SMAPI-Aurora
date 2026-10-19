@@ -51,7 +51,7 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.assertEqual(shortcut[0][0].get(A + "targetClass"), OVERVIEW)
         strings = ET.parse(self.root / "res/values/aurora_mod_manager_strings.xml").getroot()
         self.assertEqual(len(strings), 2)
-        self.assertIn("0.9.1-mod-manager-qa", (self.root / "apktool.yml").read_text())
+        self.assertIn("0.9.1-mod-manager-qa2", (self.root / "apktool.yml").read_text())
 
     def test_patch_rejects_duplicates_instead_of_corrupting_manifest(self):
         patch(self.root)
