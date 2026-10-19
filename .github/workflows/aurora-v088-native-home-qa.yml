@@ -1,0 +1,174 @@
+name: Aurora v0.8.8 restore original SMAPI home QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/version-manager/**'
+      - '.github/workflows/aurora-v088-native-home-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Locate Android SDK build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for x in aapt apksigner zipalign d8; do test -x "$BUILD_TOOLS/$x"; done
+          test -s "$ANDROID_HOME/platforms/android-35/android.jar"
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/aurora-v088/"{classes,newdex,dist}
+
+      - name: Fetch verified v0.8.7 SMAPI settings APK and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v088/base.apk" \
+            https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.7-settings-versions-qa/SMAPI-Aurora-v0.8.7-Settings-Versions-arm64-QA.apk
+          echo "27d7592081eb02ea980f78d5cdee2c221cb48d4b0d2fe17c4cd223ab761d6381  $RUNNER_TEMP/aurora-v088/base.apk" | sha256sum -c
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v088/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v088/apktool.jar" | sha256sum -c
+
+      - name: Compile SHA256 Native-home UI for Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac --release 8 -encoding UTF-8 \
+            -cp "$ANDROID_HOME/platforms/android-35/android.jar" \
+            -d "$RUNNER_TEMP/aurora-v088/classes" \
+            junimogate-bridge/version-manager/AuroraVersionActivity.java
+          "$BUILD_TOOLS/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-35/android.jar" \
+            --output "$RUNNER_TEMP/aurora-v088/newdex" \
+            "$RUNNER_TEMP/aurora-v088/classes/org/junimogate/aurora/AuroraVersionActivity.class"
+          test -s "$RUNNER_TEMP/aurora-v088/newdex/classes.dex"
+          grep -Fq 'PAGE_VERSIONS' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'buildVersionsPage' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'Настройки версий' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'downloadAndInstallFromDrive' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'buildVersionsPage(body)' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          ! grep -Fq 'Играй с модами — без лишних настроек' junimogate-bridge/version-manager/AuroraVersionActivity.java
+
+      - name: Restore native SMAPI home as launcher and update internal Versions screen
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v088/apktool.jar" d \
+            -s -f "$RUNNER_TEMP/aurora-v088/base.apk" -o "$RUNNER_TEMP/aurora-v088/decoded"
+          test -s "$RUNNER_TEMP/aurora-v088/decoded/classes3.dex"
+          test -s "$RUNNER_TEMP/aurora-v088/decoded/lib/arm64-v8a/lib_JunimoGate.Android.dll.so"
+          cp "$RUNNER_TEMP/aurora-v088/newdex/classes.dex" \
+            "$RUNNER_TEMP/aurora-v088/decoded/classes3.dex"
+          python3 junimogate-bridge/version-manager/restore_native_launcher.py \
+            "$RUNNER_TEMP/aurora-v088/decoded"
+          python3 junimogate-bridge/version-manager/bump_repair_version.py \
+            "$RUNNER_TEMP/aurora-v088/decoded"
+
+      - name: Rebuild, align, sign version settings QA APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v088/apktool.jar" b \
+            "$RUNNER_TEMP/aurora-v088/decoded" \
+            -o "$RUNNER_TEMP/aurora-v088/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 \
+            "$RUNNER_TEMP/aurora-v088/unsigned.apk" "$RUNNER_TEMP/aurora-v088/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v088/aligned.apk"
+          export QA_KEY_PASS="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 \
+            -validity 3650 -dname "CN=SMAPI Aurora v0.8.8 Certificate QA,O=Marocto" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v088/key.p12" \
+            -storepass "$QA_KEY_PASS" -keypass "$QA_KEY_PASS" >/dev/null
+          APK="$RUNNER_TEMP/aurora-v088/dist/SMAPI-Aurora-v0.8.8-Native-Home-arm64-QA.apk"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/aurora-v088/key.p12" \
+            --ks-type PKCS12 --ks-key-alias aurora-qa \
+            --ks-pass env:QA_KEY_PASS --key-pass env:QA_KEY_PASS \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$APK" "$RUNNER_TEMP/aurora-v088/aligned.apk"
+          unset QA_KEY_PASS
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+      - name: Audit native-home APK, unchanged SMAPI and patched Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v088/dist/SMAPI-Aurora-v0.8.8-Native-Home-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v088/app.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='19' versionName='0.8.8-native-home-qa'" "$RUNNER_TEMP/aurora-v088/app.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-v088/app.txt"
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" | grep -Fq 'android.permission.REQUEST_INSTALL_PACKAGES'
+          python3 - "$RUNNER_TEMP/aurora-v088/base.apk" "$APK" <<'PY'
+          import sys, zipfile, hashlib
+          with zipfile.ZipFile(sys.argv[1]) as old,zipfile.ZipFile(sys.argv[2]) as new:
+              assert old.testzip() is None and new.testzip() is None
+              a,b = set(old.namelist()),set(new.namelist())
+              assert a==b, f"APK payload changed name set: +{b-a}, -{a-b}"
+              # JAR v1 signature metadata is regenerated by apksigner.
+              changed = {name for name in a if not name.startswith("META-INF/") and old.read(name)!=new.read(name)}
+              allowed = {"classes3.dex","AndroidManifest.xml"}
+              assert changed<=allowed and "classes3.dex" in changed, f"Unexpected APK changes: {changed}"
+              assert len([n for n in b if n.startswith("assets/smapi-managed/")])>0
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.GameHost") for n in b)
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.Android") for n in b)
+              assert not any(n.lower().endswith('/stardewvalley.dll') for n in b)
+              print(f"PASS: only {sorted(changed)} changed; SMAPI, Android16 hotfix, all other managed/native code byte-for-byte preserved.")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v088/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Original SMAPI MainActivity is the only Android launcher; Aurora manages versions internally." >> "$GITHUB_STEP_SUMMARY"
+          echo "All original SMAPI Settings/Mods/Home, GameHost, v0.8.5 Core and Android16 hotfix preserved byte-for-byte." >> "$GITHUB_STEP_SUMMARY"
+          echo "NOT device tested: requires Android crash retest from the user." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package warnings and installation guide
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/aurora-v088/dist/READ-ME-FIRST.txt" <<'EOF'
+          SMAPI Aurora v0.8.8 ARM64 experimental QA
+          Restores ORIGINAL SMAPI MainActivity as sole app launcher.
+          Home with circular SMAPI button, Mods, Logs, Settings comes first.
+          Settings > Version Settings is inside native SMAPI Settings.
+          Aurora version manager no longer appears at app startup.
+          Existing installed game does not require any new download.
+          Game startup crash is NOT device-verified fixed. Export new log.
+          Do not uninstall game; back up Aurora mods and all game saves first.
+          New QA signing certificate may block updates over older QA builds.
+          No commercial game APKs or DLLs included.
+          EOF
+
+      - name: Publish v0.8.8 QA APK in GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v0.8.8-native-home-qa"
+          APK="$RUNNER_TEMP/aurora-v088/dist/SMAPI-Aurora-v0.8.8-Native-Home-arm64-QA.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists; retaining its original APK signing identity."
+          else
+            gh release create "$TAG" "$APK" \
+              "$RUNNER_TEMP/aurora-v088/dist/SHA256SUMS.txt" \
+              "$RUNNER_TEMP/aurora-v088/dist/READ-ME-FIRST.txt" \
+              --prerelease \
+              --title "SMAPI Aurora v0.8.8 — Original SMAPI Home QA" \
+              --notes "Android ARM64 experimental QA. Restores original JunimoGate/SMAPI MainActivity as sole launcher: original home with circular SMAPI play button, Mods, Logs and Settings loads immediately. The SMAPI Settings > Настройки версий button opens Aurora Version Settings directly; Back returns to SMAPI Settings. Removes unwanted Java Play with Mods front page. Preserves prior managed Settings, GameHost, SMAPI runtime, accepted installed-game signer and Android 16 split fix. Real crash fix has NOT been verified on device. No game APK bundled. Backup mods and saves before replacing QA build; different signing key may prevent in-place update."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.8.8-Native-Home-QA
+          path: ${{ runner.temp }}/aurora-v088/dist/
+          if-no-files-found: error
+          retention-days: 14
