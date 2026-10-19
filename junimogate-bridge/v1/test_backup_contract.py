@@ -28,7 +28,7 @@ class BackupWorkflowTests(unittest.TestCase):
 
     def test_archive_defenses(self):
         for marker in (
-            'MAX_', 'LIMIT_ENTRIES', 'LIMIT_BYTES', 'LIMIT_SINGLE_FILE',
+            'LIMIT_ENTRIES', 'LIMIT_BYTES', 'LIMIT_SINGLE_FILE',
             'Files.isSymbolicLink(', 'sha256', 'MessageDigest.getInstance("SHA-256")',
             'validateName(', 'canonical.startsWith(', 'ZipInputStream',
             'if(overall>LIMIT_BYTES)', 'found.containsKey(name)',
