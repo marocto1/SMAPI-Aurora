@@ -81,8 +81,8 @@ class V1Integration(unittest.TestCase):
         self.assertIn('android:layout_height="100dp"', layout)
         self.assertIn("mods_inventory_count", layout)
         yml = (self.root / "apktool.yml").read_text()
-        self.assertIn("versionCode: 100", yml)
-        self.assertIn("versionName: 1.0.0-rc.1", yml)
+        self.assertIn("versionCode: 101", yml)
+        self.assertIn("versionName: 1.0.0-rc.2", yml)
         light = ET.parse(self.root / "res/values/colors.xml").getroot()
         dark = ET.parse(self.root / "res/values-night/colors.xml").getroot()
         self.assertNotEqual(next(c.text for c in light if c.get("name") ==
