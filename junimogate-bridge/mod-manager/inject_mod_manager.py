@@ -97,9 +97,13 @@ def patch(root: Path) -> None:
     layout_data = mods_layout.read_text(encoding="utf-8")
     # Match both original source XML and Apktool-decoded layout indentation.
     matches = list(re.finditer(
-        r'<TextView\s+android:id="@\+id/mods_inventory_count"', layout_data))
+        r'<TextView\b[^>]*android:id="(?:@\+id|@id)/mods_inventory_count"[^>]*>', layout_data))
     if len(matches) != 1 or "AuroraWorkshopTabsView" in layout_data:
-        raise ValueError("Original Mods layout anchor missing, ambiguous or already patched")
+        raise ValueError(
+            "Original Mods layout anchor missing/ambiguous/already patched: " +
+            (layout_data[max(0, layout_data.find("mods_inventory_count")-140):
+                         layout_data.find("mods_inventory_count")+140]
+             if "mods_inventory_count" in layout_data else "inventory_count absent"))
     entry = (
         '<org.junimogate.aurora.AuroraWorkshopTabsView\n'
         '            android:layout_width="match_parent"\n'
