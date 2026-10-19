@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -53,6 +54,7 @@ public final class AuroraVersionActivity extends Activity {
     private static final String PREFS = "aurora-local-version-source";
     private static final String SOURCE_KEY = "version-1.6.15.3-build245-link";
     private static final String GAME_ID = "com.chucklefish.stardewvalley";
+    private static final String KNOWN_PLAY_CERT = "c7b27f1faf2f350e3c117875bde2353cea837ebe1b3c2ce23513bb191d95852d";
     private static final long MAX_ARCHIVE = 350_000_000L;
     private static final int BG = Color.rgb(17, 18, 28);
     private static final int CARD = Color.rgb(32, 32, 49);
@@ -66,6 +68,7 @@ public final class AuroraVersionActivity extends Activity {
     };
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView status;
+    private TextView gameIdentityStatus;
     private boolean busy;
 
     @Override public void onCreate(Bundle state) {
@@ -74,6 +77,12 @@ public final class AuroraVersionActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
         buildScreen();
         processInstallCallback(getIntent());
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (gameIdentityStatus != null)
+            gameIdentityStatus.setText(gameVersion() + "\n" + formatCertificateStatus());
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -105,11 +114,15 @@ public final class AuroraVersionActivity extends Activity {
         label(build, "ИГРА · КАТАЛОГ", 12, MINT, Typeface.BOLD, 0);
         label(build, "Stardew Valley 1.6.15.3", 20, TEXT, Typeface.BOLD, 6);
         label(build, "build 245  ·  ARM64  ·  3 APK (299 МБ архив)", 13, SUB, Typeface.NORMAL, 4);
-        label(build, gameVersion(), 13, MINT, Typeface.NORMAL, 10);
+        gameIdentityStatus = label(build,
+            gameVersion() + "\n" + formatCertificateStatus(),
+            12, MINT, Typeface.NORMAL, 10);
+        button(build, "Проверить подпись установленной игры", false, this::showCertificateDetails);
         button(build, "Скачать из моего Google Диска", true, this::openSavedLink);
         button(build, "Указать личную ссылку", false, this::editSavedLink);
         button(build, "Выбрать скачанный .apks и установить", false, this::chooseArchive);
         button(build, "Обновить игру в Google Play", false, this::openGooglePlay);
+        button(build, "Настройки установленной Stardew Valley", false, this::openGameAppDetails);
 
         LinearLayout info = card(body);
         label(info, "ПЕРЕД УСТАНОВКОЙ", 12, MINT, Typeface.BOLD, 0);
@@ -127,6 +140,118 @@ public final class AuroraVersionActivity extends Activity {
         } catch (PackageManager.NameNotFoundException e) {
             return "Игра ещё не обнаружена на телефоне";
         }
+    }
+
+
+    /**
+     * Compare Android's verified installed signer (not filename, size or web link)
+     * with the tested JunimoGate Google Play certificate. Rotation is recognized
+     * only when SigningInfo provides a verified chain with the known signer.
+     *
+     * Return [state, installedDigest, detail].
+     * Never accept unknown APK signing certificates in the managed GameHost.
+     */
+    private String[] installedGameIdentity() {
+        try {
+            PackageInfo pkg = getPackageManager().getPackageInfo(
+                GAME_ID,
+                Build.VERSION.SDK_INT >= 28
+                    ? PackageManager.GET_SIGNING_CERTIFICATES
+                    : PackageManager.GET_SIGNATURES);
+            Signature[] current;
+            Signature[] history = null;
+            if (Build.VERSION.SDK_INT >= 28) {
+                if (pkg.signingInfo == null)
+                    return new String[]{"unknown", "", "Android не вернул SigningInfo"};
+                current = pkg.signingInfo.getApkContentsSigners();
+                if (!pkg.signingInfo.hasMultipleSigners())
+                    history = pkg.signingInfo.getSigningCertificateHistory();
+            } else {
+                current = pkg.signatures;
+            }
+            if (current == null || current.length != 1 || current[0] == null)
+                return new String[]{"unknown", "", "Отсутствует единственная проверенная подпись"};
+            String sha = hex(MessageDigest.getInstance("SHA-256").digest(
+                current[0].toByteArray()));
+            if (KNOWN_PLAY_CERT.equals(sha))
+                return new String[]{"trusted", sha, "Подпись совпадает с проверенной Google Play"};
+            if (history != null && history.length > 1) {
+                for (int i = 0; i < history.length - 1; i++) {
+                    if (history[i] != null &&
+                        KNOWN_PLAY_CERT.equals(hex(MessageDigest.getInstance("SHA-256")
+                            .digest(history[i].toByteArray()))))
+                        return new String[]{"trusted", sha,
+                            "Android подтвердил смену подписи от проверенного сертификата"};
+                }
+            }
+            return new String[]{"mismatch", sha,
+                "Подпись установленной игры НЕ совпадает с проверенной"};
+        } catch (PackageManager.NameNotFoundException e) {
+            return new String[]{"missing", "", "Stardew Valley не установлена"};
+        } catch (Exception e) {
+            return new String[]{"unknown", "", "Не удалось прочитать подпись: "
+                + e.getClass().getSimpleName()};
+        }
+    }
+
+    private String formatCertificateStatus() {
+        String[] check = installedGameIdentity();
+        if ("trusted".equals(check[0]))
+            return "✓ " + check[2] + "\nSHA-256: " + check[1];
+        if ("mismatch".equals(check[0]))
+            return "⚠ " + check[2] + "\nSHA-256: " + check[1]
+                + "\nSMAPI откажет в запуске до установки подходящей версии.";
+        return check[2];
+    }
+
+    private void showCertificateDetails() {
+        String[] current = installedGameIdentity();
+        String message = "Статус: " + current[2]
+            + "\n\nТекущая подпись (SHA-256): "
+            + (current[1].isEmpty() ? "не определена" : current[1])
+            + "\n\nОжидаемая подпись тестовой Google Play сборки:\n"
+            + KNOWN_PLAY_CERT
+            + "\n\nЕсли сертификаты различаются, Android не позволит обновить"
+            + " установленную игру APK с другой подписью."
+            + " Нельзя исправить это заменой SMAPI или обходом его проверки."
+            + "\n\nСначала сохрани игровые сохранения. Затем используй"
+            + " Google Play или свой проверенный комплект .apks."
+            + " При конфликте подписи замена игры возможна только через"
+            + " подтверждённые действия Android после сохранения данных.";
+        new AlertDialog.Builder(this)
+            .setTitle("Проверка подписи Stardew Valley")
+            .setMessage(message)
+            .setNegativeButton("Закрыть", null)
+            .setNeutralButton("Настройки игры", (d, w) -> openGameAppDetails())
+            .setPositiveButton("Google Play", (d, w) -> openGooglePlay())
+            .show();
+    }
+
+    private void openGameAppDetails() {
+        try {
+            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:" + GAME_ID));
+            startActivity(i);
+        } catch (Exception e) {
+            report("Не удалось открыть настройки Stardew Valley");
+        }
+    }
+
+    private void explainSignatureMismatch() {
+        new AlertDialog.Builder(this)
+            .setTitle("Другая подпись Stardew Valley")
+            .setMessage("На устройстве уже установлена Stardew Valley с другой"
+                + " цифровой подписью. Android не позволит установить проверенные"
+                + " split APK поверх неё, а SMAPI остановит запуск."
+                + "\n\nAurora не будет удалять игру или её сохранения."
+                + " Сначала сделай резервную копию всех сохранений."
+                + " Затем открой сведения об установленной игре и реши,"
+                + " как заменить её через Android или Google Play."
+                + "\n\nНи автоматического удаления, ни обхода цифровой подписи нет.")
+            .setNegativeButton("Отмена", null)
+            .setNeutralButton("Настройки игры", (d, w) -> openGameAppDetails())
+            .setPositiveButton("Google Play", (d, w) -> openGooglePlay())
+            .show();
     }
 
     private LinearLayout card(LinearLayout root) {
@@ -182,6 +307,10 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     private void launchSmapi() {
+        if ("mismatch".equals(installedGameIdentity()[0])) {
+            explainSignatureMismatch();
+            return;
+        }
         try {
             Intent i = new Intent();
             i.setClassName(getPackageName(), "org.junimogate.app.MainActivity");
@@ -195,8 +324,12 @@ public final class AuroraVersionActivity extends Activity {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + GAME_ID)));
         } catch (Exception e) {
-            startActivity(new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://play.google.com/store/apps/details?id=" + GAME_ID)));
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/store/apps/details?id=" + GAME_ID)));
+            } catch (Exception failure) {
+                report("Не удалось открыть Google Play");
+            }
         }
     }
 
@@ -258,6 +391,10 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     private void stageInstall(Uri content) {
+        if ("mismatch".equals(installedGameIdentity()[0])) {
+            explainSignatureMismatch();
+            return;
+        }
         if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
             new AlertDialog.Builder(this)
                 .setTitle("Разрешение на установку APK")
