@@ -69,6 +69,14 @@ class ModManagerPackagingTests(unittest.TestCase):
         self.assertIn("@style/Theme.JunimoGate", (self.root / "AndroidManifest.xml").read_text())
         self.assertIn("0.9.4-workshop-integrated-qa", (self.root / "apktool.yml").read_text())
 
+    def test_apktool_normalized_mods_layout(self):
+        p = self.root / "res/layout/fragment_mods.xml"
+        text = p.read_text().replace('@+id/mods_inventory_count',
+                                     '@id/mods_inventory_count')
+        p.write_text(text)
+        patch(self.root)
+        self.assertEqual(p.read_text().count("AuroraWorkshopTabsView"), 1)
+
     def test_patch_rejects_duplicates_instead_of_corrupting_manifest(self):
         patch(self.root)
         with self.assertRaises(ValueError):
