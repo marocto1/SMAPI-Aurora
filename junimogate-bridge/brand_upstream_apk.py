@@ -54,6 +54,15 @@ def apply(directory:Path):
     if not manifest.is_file(): raise ValueError("Missing decoded AndroidManifest.xml")
     src=manifest.read_text(encoding="utf-8")
     if ORIGINAL_PACKAGE not in src: raise ValueError("Upstream APK manifest unexpected; package identity changed")
+    # The original manifest carries an application-level literal "JunimoGate".
+    # Updating only @string/app_name changes the Activity label but not the
+    # launcher-visible application name in Android settings.
+    application_label=re.compile(
+        r'(<application\\b[^>]*\\bandroid:label=")([^"]+)(")', re.DOTALL)
+    src,count=application_label.subn(
+        lambda m:m.group(1)+"SMAPI Aurora"+m.group(3),src,count=1)
+    if count!=1:
+        raise ValueError("Upstream application label not found; cannot safely brand APK")
     # Some APKtool versions omit a manifest versionName when the source APK
     # stores the display version in its aapt resources. Keep it unchanged
     # rather than inventing a new attribute that can break Xamarin metadata.
