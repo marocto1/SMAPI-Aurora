@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   assemble:
@@ -149,6 +149,25 @@ jobs:
           Back up app-private content, mods/settings, and saves before any
           uninstall. No paid APKs or personal Drive links are shipped with Aurora.
           EOF
+
+      - name: Publish v0.8.3 QA APK in GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v0.8.3-drive-autodownload-qa"
+          APK="$RUNNER_TEMP/aurora-v083/dist/SMAPI-Aurora-v0.8.3-Drive-Autodownload-arm64-QA.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists; retaining its original APK signing identity."
+          else
+            gh release create "$TAG" "$APK" \
+              "$RUNNER_TEMP/aurora-v083/dist/SHA256SUMS.txt" \
+              "$RUNNER_TEMP/aurora-v083/dist/READ-ME-FIRST.txt" \
+              --prerelease \
+              --title "SMAPI Aurora v0.8.3 — Drive auto-download QA" \
+              --notes "Android ARM64 experimental build. Adds direct in-app download of the owner's saved Google Drive APKS file, progress display, exact APK SHA-256 verification, and Android installation confirmation. Private Drive links and commercial game files are not bundled. The previously installed game's certificate mismatch is not bypassed. A personal source must already be configured on-device. Actual device behavior is not yet verified; back up saves and app data before changing installations."
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
