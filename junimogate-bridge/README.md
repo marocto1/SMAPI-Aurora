@@ -18,7 +18,9 @@ No commercial game files are included or distributed.
 
 - [Pinned source overlay and XML integration PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176471760) — validates original JunimoGate commit, Aurora resource links, app identity, Russian selector, and that game/runtime/license files stay untouched.
 - [Platform-neutral JunimoGate host suites PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39176757497) — separately compiles and executes the public-dependency Core, Extraction, Rewriter and Mods tests after applying the Aurora overlay.
-- **Not tested:** Android assembly compilation, game execution, physical-device SMAPI and mod loading.
+- [Android AAPT2 resource compilation PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39179286868) — Android SDK compiles Aurora's Material3 assets, icon and Russian locale; checks contrast for light OS themes and >=280 translated keys.
+- [Android .NET C# integration library compilation PASS](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39179163408) — the pinned JunimoGate Android boundary and its host-side project references build on .NET 9 Android (without game-derived references).
+- **Not yet built/tested:** runnable Aurora + JunimoGate game-host APK, SMAPI startup, installed-game signer compatibility or mod loading on a real device.
 
 ## What the first integration implements
 
@@ -27,18 +29,20 @@ No commercial game files are included or distributed.
 - Gives the derived APK its own `com.marocto.smapi.aurora.jg` application ID
   (the upstream CLR/Java class namespaces remain unchanged for compatibility).
 - Applies Aurora's midnight-violet/mint Material3 resource palette in both
-  light and night resource qualifiers.
+  light and night resource qualifiers; also keeps status/navigation bar icons
+  legible when the system Android theme is light.
 - Replaces the home backdrop, brand visual and adaptive app icon with
   original vector resources.
 - Adds the Aurora banner to the home dashboard and changes the app's visible name.
-- Adds Russian translations for launch status, navigation, game-preparation
-  diagnostics and some mod-management surfaces.
+- Adds Russian translations for 292 interface strings: game startup, mod ZIP management,
+  mod groups and dependencies, logs, saves and settings. A formatter check rejects
+  translations with mismatched Android placeholder arguments.
 - Wires Russian into the explicit Android language selector (English and Chinese remain).
 - Points in-app release links and update checks to Aurora releases, not JunimoGate.
 - Preserves JunimoGate licensing and creator attribution explicitly.
 
-This is still an incremental localization; untranslated settings and mod text
-fall back to English. It is not yet a pixel-perfect transplant of every v0.6
+This is still an incremental localization: 292 of the current 446 English base
+strings have explicit Russian translations, and remaining text falls back to English. It is not yet a pixel-perfect transplant of every v0.6
 Preview interaction.
 
 ## Reproduce the source overlay
