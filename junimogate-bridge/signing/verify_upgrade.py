@@ -25,9 +25,9 @@ def signing_ids(apk: Path, apksigner: str) -> tuple[str, ...]:
     # Android build-tools vary in whitespace, casing and colon separators.
     digest = []
     for line in output.splitlines():
-        if not re.search(r"Signer\s*#\d+.*certificate\s+SHA-256\s+digest", line, re.I):
+        if not re.search(r"(?:V\d+(?:\.\d+)?\s+Signer|Signer\s*#\d+):?\s+certificate\s+SHA-256\s+digest", line, re.I):
             continue
-        parts = line.split(":", 1)
+        parts = line.rsplit(":", 1)
         if len(parts) != 2:
             continue
         candidate = parts[1].strip().lower().replace(":", "")
