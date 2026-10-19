@@ -506,6 +506,18 @@ def plan(root: Path) -> dict[Path, str]:
         p = APP / f"Resources/{variant}/colors.xml"
         changes[p] = patch_colors(read(root, p))
 
+    # Aurora uses a dark UI even when Android is in light mode; system bar
+    # glyphs must remain light for contrast against the dark status/nav bars.
+    style = APP / "Resources/values/styles.xml"
+    s = read(root, style)
+    s = replace_one(s,
+        '<item name="android:windowLightStatusBar">true</item>',
+        '<item name="android:windowLightStatusBar">false</item>', str(style))
+    s = replace_one(s,
+        '<item name="android:windowLightNavigationBar">true</item>',
+        '<item name="android:windowLightNavigationBar">false</item>', str(style))
+    changes[style] = s
+
     default_strings = APP / "Resources/values/strings.xml"
     s = patch_strings(read(root, default_strings), BRAND_STRINGS)
     s = patch_strings(s, {
