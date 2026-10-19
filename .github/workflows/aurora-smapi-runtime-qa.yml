@@ -1,0 +1,106 @@
+name: Aurora Full SMAPI Runtime APK QA
+
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/brand_upstream_apk.py'
+      - 'junimogate-bridge/audit_runtime_apk.py'
+      - '.github/workflows/aurora-smapi-runtime-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify Android SDK and tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "$ANDROID_HOME/build-tools"
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for t in aapt apksigner zipalign; do test -x "$BUILD_TOOLS/$t"; done
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+      - name: Download original official SMAPI APK and Apktool (pinned by SHA256)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora/dist"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/aurora/original.apk" "https://github.com/leontismaro/JunimoGate/releases/download/v0.3.1/JunimoGate-0.3.1-arm64.apk"
+          echo "49bcce760ceda4b9080237000f713cfbd9485e5b237be4c38ed8b95b522295b4  $RUNNER_TEMP/aurora/original.apk" | sha256sum -c
+          curl -fL --retry 3 -o "$RUNNER_TEMP/aurora/apktool.jar" "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora/apktool.jar" | sha256sum -c
+          "$BUILD_TOOLS/aapt" dump badging "$RUNNER_TEMP/aurora/original.apk" | tee "$RUNNER_TEMP/aurora/orig.txt"
+          grep -Fq "package: name='org.junimogate.app'" "$RUNNER_TEMP/aurora/orig.txt"
+      - name: Decode resource tables (preserve original GameHost code and native libs)
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora/apktool.jar" d -s -f "$RUNNER_TEMP/aurora/original.apk" -o "$RUNNER_TEMP/aurora/decoded"
+          test -s "$RUNNER_TEMP/aurora/decoded/res/values/colors.xml"
+      - name: Apply Aurora resource-only branding and Russian translation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 junimogate-bridge/brand_upstream_apk.py "$RUNNER_TEMP/aurora/decoded"
+      - name: Build, align and QA-sign Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora/apktool.jar" b "$RUNNER_TEMP/aurora/decoded" -o "$RUNNER_TEMP/aurora/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$RUNNER_TEMP/aurora/unsigned.apk" "$RUNNER_TEMP/aurora/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c 4 "$RUNNER_TEMP/aurora/aligned.apk"
+          PASS="$(openssl rand -hex 20)"
+          export PASS
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=SMAPI Aurora QA,O=Marocto" -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora/qa.jks" -storepass "$PASS" -keypass "$PASS"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurora/qa.jks" --ks-type PKCS12 --ks-key-alias aurora-qa --ks-pass env:PASS --key-pass env:PASS --v2-signing-enabled true --v3-signing-enabled true --out "$RUNNER_TEMP/aurora/dist/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk" "$RUNNER_TEMP/aurora/aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$RUNNER_TEMP/aurora/dist/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk"
+          unset PASS
+      - name: Inspect Android launch identity and verify SMAPI runtime byte integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora/dist/SMAPI-Aurora-v0.7.0-Runtime-QA-arm64.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora/qa.txt"
+          grep -Fq "package: name='org.junimogate.app'" "$RUNNER_TEMP/aurora/qa.txt"
+          grep -Fq "versionName='0.7.0-aurora-smapi-qa'" "$RUNNER_TEMP/aurora/qa.txt"
+          grep -Fq 'launchable-activity:' "$RUNNER_TEMP/aurora/qa.txt"
+          python3 junimogate-bridge/audit_runtime_apk.py "$RUNNER_TEMP/aurora/original.apk" "$APK"
+          (cd "$RUNNER_TEMP/aurora/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Android package identity kept org.junimogate.app to preserve .NET interop, and original game signer rules remain unchanged." >> "$GITHUB_STEP_SUMMARY"
+          echo "Contains original fully built SMAPI runtime; device startup still unverified." >> "$GITHUB_STEP_SUMMARY"
+      - name: Distribution info
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/aurora/dist/README-IMPORTANT.txt" <<'EOF'
+          SMAPI Aurora v0.7.0 Runtime QA, resource-only adaptation of JunimoGate v0.3.1.
+          This is an installable APK with the original fully compiled SMAPI GameHost,
+          modified Aurora theme and Russian translation, NOT a full custom Aurora
+          GameHost compiled from C# sources. It is UNTESTED on a physical Android phone.
+          It may not launch with incompatible or repackaged Stardew Valley copies.
+          Package ID is org.junimogate.app (same as the original JunimoGate).
+          Signing is ephemeral QA signing. Do not overwrite an existing JunimoGate
+          app: its signing certificate differs. Back up game saves and private mod
+          data before any uninstall or replacement.
+
+          Reproduction/source modifications:
+          https://github.com/marocto1/SMAPI-Aurora/tree/main/junimogate-bridge
+          Complete upstream corresponding GPL/LGPL sources:
+          https://github.com/leontismaro/JunimoGate/tree/v0.3.1
+          Official original APK SHA256:
+          49bcce760ceda4b9080237000f713cfbd9485e5b237be4c38ed8b95b522295b4
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.7.0-Full-SMAPI-Runtime-QA
+          path: ${{ runner.temp }}/aurora/dist/
+          if-no-files-found: error
+          retention-days: 14
