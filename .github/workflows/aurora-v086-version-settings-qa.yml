@@ -1,0 +1,172 @@
+name: Aurora v0.8.6 Settings > Versions Android SMAPI QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/version-manager/**'
+      - '.github/workflows/aurora-v086-version-settings-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Locate Android SDK build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          for x in aapt apksigner zipalign d8; do test -x "$BUILD_TOOLS/$x"; done
+          test -s "$ANDROID_HOME/platforms/android-35/android.jar"
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/aurora-v086/"{classes,newdex,dist}
+
+      - name: Fetch pinned v0.8.1 runtime and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v086/base.apk" \
+            https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.5-installed-game-qa/SMAPI-Aurora-v0.8.5-Installed-Game-arm64-QA.apk
+          echo "1ca50edee33c1e15571ee2be278ab1a58903d952f2ce1399d94d5a1557557f82  $RUNNER_TEMP/aurora-v086/base.apk" | sha256sum -c
+          curl -fL --retry 3 --silent --show-error \
+            -o "$RUNNER_TEMP/aurora-v086/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v086/apktool.jar" | sha256sum -c
+
+      - name: Compile SHA256 Version-settings UI for Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac --release 8 -encoding UTF-8 \
+            -cp "$ANDROID_HOME/platforms/android-35/android.jar" \
+            -d "$RUNNER_TEMP/aurora-v086/classes" \
+            junimogate-bridge/version-manager/AuroraVersionActivity.java
+          "$BUILD_TOOLS/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-35/android.jar" \
+            --output "$RUNNER_TEMP/aurora-v086/newdex" \
+            "$RUNNER_TEMP/aurora-v086/classes/org/junimogate/aurora/AuroraVersionActivity.class"
+          test -s "$RUNNER_TEMP/aurora-v086/newdex/classes.dex"
+          grep -Fq 'PAGE_VERSIONS' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'buildVersionsPage' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'Настройки версий' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'downloadAndInstallFromDrive' junimogate-bridge/version-manager/AuroraVersionActivity.java
+          grep -Fq 'navigateTo(PAGE_VERSIONS)' junimogate-bridge/version-manager/AuroraVersionActivity.java
+
+      - name: Replace only Java version-manager DEX and Android version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v086/apktool.jar" d \
+            -s -f "$RUNNER_TEMP/aurora-v086/base.apk" -o "$RUNNER_TEMP/aurora-v086/decoded"
+          test -s "$RUNNER_TEMP/aurora-v086/decoded/classes3.dex"
+          test -s "$RUNNER_TEMP/aurora-v086/decoded/lib/arm64-v8a/lib_JunimoGate.Android.dll.so"
+          cp "$RUNNER_TEMP/aurora-v086/newdex/classes.dex" \
+            "$RUNNER_TEMP/aurora-v086/decoded/classes3.dex"
+          python3 junimogate-bridge/version-manager/bump_repair_version.py \
+            "$RUNNER_TEMP/aurora-v086/decoded"
+
+      - name: Rebuild, align, sign version settings QA APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v086/apktool.jar" b \
+            "$RUNNER_TEMP/aurora-v086/decoded" \
+            -o "$RUNNER_TEMP/aurora-v086/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 \
+            "$RUNNER_TEMP/aurora-v086/unsigned.apk" "$RUNNER_TEMP/aurora-v086/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v086/aligned.apk"
+          export QA_KEY_PASS="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 \
+            -validity 3650 -dname "CN=SMAPI Aurora v0.8.6 Certificate QA,O=Marocto" \
+            -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v086/key.p12" \
+            -storepass "$QA_KEY_PASS" -keypass "$QA_KEY_PASS" >/dev/null
+          APK="$RUNNER_TEMP/aurora-v086/dist/SMAPI-Aurora-v0.8.6-Version-Settings-arm64-QA.apk"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/aurora-v086/key.p12" \
+            --ks-type PKCS12 --ks-key-alias aurora-qa \
+            --ks-pass env:QA_KEY_PASS --key-pass env:QA_KEY_PASS \
+            --v2-signing-enabled true --v3-signing-enabled true \
+            --out "$APK" "$RUNNER_TEMP/aurora-v086/aligned.apk"
+          unset QA_KEY_PASS
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+
+      - name: Audit version-settings APK, unchanged SMAPI and patched Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v086/dist/SMAPI-Aurora-v0.8.6-Version-Settings-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v086/app.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='17' versionName='0.8.6-version-settings-qa'" "$RUNNER_TEMP/aurora-v086/app.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.aurora.AuroraVersionActivity'" "$RUNNER_TEMP/aurora-v086/app.txt"
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" | grep -Fq 'android.permission.REQUEST_INSTALL_PACKAGES'
+          python3 - "$RUNNER_TEMP/aurora-v086/base.apk" "$APK" <<'PY'
+          import sys, zipfile, hashlib
+          with zipfile.ZipFile(sys.argv[1]) as old,zipfile.ZipFile(sys.argv[2]) as new:
+              assert old.testzip() is None and new.testzip() is None
+              a,b = set(old.namelist()),set(new.namelist())
+              assert a==b, f"APK payload changed name set: +{b-a}, -{a-b}"
+              # JAR v1 signature metadata is regenerated by apksigner.
+              changed = {name for name in a if not name.startswith("META-INF/") and old.read(name)!=new.read(name)}
+              allowed = {"classes3.dex","AndroidManifest.xml"}
+              assert changed<=allowed and "classes3.dex" in changed, f"Unexpected APK changes: {changed}"
+              assert len([n for n in b if n.startswith("assets/smapi-managed/")])>0
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.GameHost") for n in b)
+              assert any(n.startswith("lib/arm64-v8a/lib_JunimoGate.Android") for n in b)
+              assert not any(n.lower().endswith('/stardewvalley.dll') for n in b)
+              print(f"PASS: only {sorted(changed)} changed; SMAPI, Android16 hotfix, all other managed/native code byte-for-byte preserved.")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v086/dist" && sha256sum *.apk > SHA256SUMS.txt)
+          echo "Android Java Settings > Version Settings UI compiled successfully." >> "$GITHUB_STEP_SUMMARY"
+          echo "SMAPI GameHost, v0.8.5 installed-signer Core patch and Android16 hotfix preserved byte-for-byte." >> "$GITHUB_STEP_SUMMARY"
+          echo "NOT device tested; the installed game's signer is accepted by Aurora Core policy but Android still enforces installation signatures." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Package warnings and installation guide
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/aurora-v086/dist/READ-ME-FIRST.txt" <<'EOF'
+          SMAPI Aurora v0.8.6 ARM64 QA
+          Includes v0.8.1 Android16 split APK preparation fix.
+          New: Settings > Version Settings screen for installed game,\n          validated versions, Drive source and optional .apks installation.\n          Keeps the compatible-signer Core patch from v0.8.5.
+          Installed Stardew Valley can be launched without a game download.\n          Google Drive download needs the user's configured private source.\n          Android still enforces package upgrade signatures.
+
+          REAL DEVICE STATUS: NOT TESTED.\n          The game has not been confirmed to launch with SMAPI on this device.
+
+          The QA app key is ephemeral (different from v0.8.1), package name
+          is the same; Android may block updating an existing Aurora app.
+          Back up app-private content, mods/settings, and saves before any
+          uninstall. No paid APKs or personal Drive links are shipped with Aurora.
+          EOF
+
+      - name: Publish v0.8.6 QA APK in GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v0.8.6-version-settings-qa"
+          APK="$RUNNER_TEMP/aurora-v086/dist/SMAPI-Aurora-v0.8.6-Version-Settings-arm64-QA.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists; retaining its original APK signing identity."
+          else
+            gh release create "$TAG" "$APK" \
+              "$RUNNER_TEMP/aurora-v086/dist/SHA256SUMS.txt" \
+              "$RUNNER_TEMP/aurora-v086/dist/READ-ME-FIRST.txt" \
+              --prerelease \
+              --title "SMAPI Aurora v0.8.6 — Version Settings QA" \
+              --notes "Android ARM64 experimental QA. New Aurora Settings > Version Settings screen with installed game details, verified Stardew Valley 1.6.15.3 build 245, optional private Drive APKS download and local archive install. Retains v0.8.5 Core installed-signer compatibility and Android16 split fix. Does not add version controls to the bundled managed JunimoGate Settings tab; those controls are in Aurora's own Settings screen before opening SMAPI. A private Google Drive source must be configured for optional download on fresh installs. No paid game binaries included. No confirmed device startup/gameplay. QA app uses a new temporary signing certificate; back up saves/mods/settings before any uninstall."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-v0.8.6-Version-Settings-QA
+          path: ${{ runner.temp }}/aurora-v086/dist/
+          if-no-files-found: error
+          retention-days: 14
