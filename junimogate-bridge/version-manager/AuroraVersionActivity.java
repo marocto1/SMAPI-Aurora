@@ -47,7 +47,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
- * Java entry screen packaged into the existing Aurora/JunimoGate APK.
+ * Internal Version Settings screen, opened from original JunimoGate Settings.
  * Original managed SMAPI/GameHost/CLR files remain byte-identical.
  * No paid game binary or public mirror is embedded in this code.
  */
@@ -78,9 +78,9 @@ public final class AuroraVersionActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
-        currentPage = state != null ? state.getInt(STATE_PAGE, PAGE_HOME)
-            : getIntent().getIntExtra(INTENT_PAGE, PAGE_HOME);
-        if (currentPage < PAGE_HOME || currentPage > PAGE_VERSIONS) currentPage = PAGE_HOME;
+        // The original SMAPI MainActivity is the app launcher.
+        // This activity is reserved exclusively for internal Version Settings.
+        currentPage = PAGE_VERSIONS;
         buildScreen();
         processInstallCallback(getIntent());
     }
@@ -110,15 +110,8 @@ public final class AuroraVersionActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        if (currentPage == PAGE_VERSIONS) { navigateTo(PAGE_SETTINGS); return; }
-        if (currentPage == PAGE_SETTINGS) { navigateTo(PAGE_HOME); return; }
-        super.onBackPressed();
-    }
-
-    private void navigateTo(int page) {
-        if (busy) { toast("Дождись завершения операции"); return; }
-        currentPage = page;
-        buildScreen();
+        // Return to the original JunimoGate/SMAPI Settings tab.
+        finish();
     }
 
     private void buildScreen() {
@@ -133,51 +126,13 @@ public final class AuroraVersionActivity extends Activity {
         scroll.addView(body);
 
         label(body, "SMAPI  AURORA", 13, MINT, Typeface.BOLD, 0);
-        if (currentPage == PAGE_HOME) {
-            buildHomePage(body);
-        } else if (currentPage == PAGE_SETTINGS) {
-            buildSettingsPage(body);
-        } else {
-            buildVersionsPage(body);
-        }
+        buildVersionsPage(body);
         status = label(body, "Готово", 12, SUB, Typeface.NORMAL, 15);
         setContentView(scroll);
     }
 
-    private void buildHomePage(LinearLayout body) {
-        label(body, "Stardew Valley", 28, TEXT, Typeface.BOLD, 13);
-        label(body, "Играй с модами — без лишних настроек", 14, SUB, Typeface.NORMAL, 4);
-
-        LinearLayout launch = card(body);
-        label(launch, "ИГРА", 12, MINT, Typeface.BOLD, 0);
-        label(launch, gameVersion(), 14, SUB, Typeface.NORMAL, 7);
-        button(launch, "Играть с модами", true, this::launchSmapi);
-        button(launch, "Запустить обычную Stardew Valley", false, this::launchOriginalGame);
-
-        LinearLayout options = card(body);
-        label(options, "ПАРАМЕТРЫ AURORA", 12, MINT, Typeface.BOLD, 0);
-        button(options, "Настройки  ⚙", false, () -> navigateTo(PAGE_SETTINGS));
-        label(options, "Настройки версий и источников загрузки находятся внутри настроек.", 12, SUB, Typeface.NORMAL, 6);
-    }
-
-    private void buildSettingsPage(LinearLayout body) {
-        button(body, "← Назад", false, () -> navigateTo(PAGE_HOME));
-        label(body, "Настройки", 28, TEXT, Typeface.BOLD, 13);
-        label(body, "Настройки лаунчера SMAPI Aurora", 14, SUB, Typeface.NORMAL, 4);
-
-        LinearLayout versions = card(body);
-        label(versions, "ИГРА И ВЕРСИИ", 12, MINT, Typeface.BOLD, 0);
-        button(versions, "Настройки версий", true, () -> navigateTo(PAGE_VERSIONS));
-        label(versions, "Установленная игра, поддерживаемые сборки, загрузка и установка.", 12, SUB, Typeface.NORMAL, 7);
-
-        LinearLayout info = card(body);
-        label(info, "СИСТЕМА", 12, MINT, Typeface.BOLD, 0);
-        button(info, "Настройки установленной Stardew Valley", false, this::openGameAppDetails);
-        button(info, "Stardew Valley в Google Play", false, this::openGooglePlay);
-    }
-
     private void buildVersionsPage(LinearLayout body) {
-        button(body, "← Настройки", false, () -> navigateTo(PAGE_SETTINGS));
+        button(body, "← Настройки SMAPI", false, this::finish);
         label(body, "Настройки версий", 26, TEXT, Typeface.BOLD, 13);
         label(body, "Управление версиями Stardew Valley", 14, SUB, Typeface.NORMAL, 4);
 
@@ -521,7 +476,7 @@ public final class AuroraVersionActivity extends Activity {
                 connection.setInstanceFollowRedirects(false);
                 connection.setConnectTimeout(20000);
                 connection.setReadTimeout(120000);
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 SMAPI-Aurora/0.8.6");
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 SMAPI-Aurora/0.8.8");
                 try {
                     int code = connection.getResponseCode();
                     if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
