@@ -120,6 +120,13 @@ public final class AuroraWorkshopActivity extends Activity {
         LinearLayout.LayoutParams controlParams = new LinearLayout.LayoutParams(-1, dp(50));
         controlParams.topMargin = dp(6);
         page.addView(controls, controlParams);
+        LinearLayout quick = row();
+        quick.addView(button("Категории", this::showCategories), weighted());
+        quick.addView(button("☆ В избранное", this::addFavorite), weighted());
+        quick.addView(button("Избранное", this::showFavorites), weighted());
+        LinearLayout.LayoutParams quickParams = new LinearLayout.LayoutParams(-1, dp(48));
+        quickParams.topMargin = dp(5);
+        page.addView(quick, quickParams);
 
         Button curated = button("Проверенные моды · Скачать из GitHub", this::showCuratedMods);
         LinearLayout.LayoutParams curatedParams = new LinearLayout.LayoutParams(-1, dp(50));
@@ -240,6 +247,84 @@ public final class AuroraWorkshopActivity extends Activity {
         } catch (ActivityNotFoundException e) {
             status.setText("Нет браузера для открытия ссылки.");
         }
+    }
+
+
+    // Nexus discovery uses public web pages only; no API key or scraping.
+    private void showCategories() {
+        String[] categories = {
+            "Content Patcher", "UI", "Portraits", "Buildings",
+            "Visuals", "Gameplay", "Framework"
+        };
+        new AlertDialog.Builder(this).setTitle("Категории Nexus Mods")
+            .setItems(categories, (dialog, which) -> {
+                try {
+                    browser.loadUrl(BASE + "?title=" +
+                        URLEncoder.encode(categories[which], "UTF-8"));
+                } catch (Exception ignored) {
+                    status.setText("Не удалось открыть категорию.");
+                }
+            })
+            .setNegativeButton("Назад", null).show();
+    }
+
+    private static boolean safeFavoriteUrl(String candidate) {
+        if (candidate == null || candidate.length() > 1024) return false;
+        Uri uri = Uri.parse(candidate);
+        String host = uri.getHost();
+        return "https".equalsIgnoreCase(uri.getScheme()) && host != null &&
+            (host.equalsIgnoreCase("www.nexusmods.com") ||
+             host.equalsIgnoreCase("nexusmods.com")) &&
+            uri.getUserInfo() == null && uri.getPort() == -1 &&
+            uri.getPath() != null && uri.getPath().startsWith("/stardewvalley/");
+    }
+
+    private void addFavorite() {
+        String url = browser.getUrl();
+        if (!safeFavoriteUrl(url)) {
+            status.setText("Избранное доступно только для страниц Stardew Valley на Nexus.");
+            return;
+        }
+        java.util.Set<String> favorites = new java.util.TreeSet<>(
+            getSharedPreferences("aurora-workshop-favorites", MODE_PRIVATE)
+                .getStringSet("urls", java.util.Collections.emptySet()));
+        if (favorites.size() >= 40 && !favorites.contains(url)) {
+            status.setText("В избранном максимум 40 страниц."); return;
+        }
+        favorites.add(url);
+        getSharedPreferences("aurora-workshop-favorites", MODE_PRIVATE)
+            .edit().putStringSet("urls", favorites).apply();
+        status.setText("Страница добавлена в избранное Aurora.");
+    }
+
+    private void showFavorites() {
+        java.util.Set<String> stored = getSharedPreferences(
+            "aurora-workshop-favorites", MODE_PRIVATE)
+            .getStringSet("urls", java.util.Collections.emptySet());
+        java.util.ArrayList<String> entries = new java.util.ArrayList<>();
+        for (String url: stored) if (safeFavoriteUrl(url)) entries.add(url);
+        java.util.Collections.sort(entries);
+        if (entries.isEmpty()) {
+            new AlertDialog.Builder(this).setTitle("Избранное")
+                .setMessage("Пока нет сохранённых страниц.")
+                .setPositiveButton("Понятно", null).show();
+            return;
+        }
+        String[] titles = new String[entries.size()];
+        for (int i=0;i<entries.size();i++) {
+            String path = Uri.parse(entries.get(i)).getPath();
+            titles[i] = path.length() > 64 ? path.substring(0,64) + "…" : path;
+        }
+        new AlertDialog.Builder(this).setTitle("Избранное Aurora")
+            .setItems(titles,(dialog,which) -> browser.loadUrl(entries.get(which)))
+            .setNeutralButton("Очистить избранное",(dialog,which) ->
+                new AlertDialog.Builder(this)
+                    .setTitle("Удалить избранные ссылки?")
+                    .setPositiveButton("Удалить", (d, n) ->
+                        getSharedPreferences("aurora-workshop-favorites", MODE_PRIVATE)
+                            .edit().remove("urls").apply())
+                    .setNegativeButton("Отмена", null).show())
+            .setNegativeButton("Закрыть", null).show();
     }
 
     /** Only author-controlled direct links with pinned SHA-256 enter this flow. */
