@@ -3,6 +3,7 @@ package org.junimogate.aurora;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -44,11 +45,11 @@ import java.util.Set;
  * stock native SMAPI manager. No network / game mutations / new permissions.
  */
 public final class AuroraModOverviewActivity extends Activity {
-    private static final int BACKGROUND = 0xff131820;
-    private static final int PANEL = 0xff202b38;
-    private static final int TEXT = 0xfff0f3f7;
-    private static final int MUTED = 0xffa5b4c4;
-    private static final int GOOD = 0xff86d4a4;
+    private int BACKGROUND = 0xff10191f;
+    private int PANEL = 0xff1f3038;
+    private int TEXT = 0xffddeef2;
+    private int MUTED = 0xffb4c9cf;
+    private int GOOD = 0xff76d7dc;
     private static final int WARN = 0xffffc077;
     private static final int MAX_INDEX_BYTES = 8 * 1024 * 1024;
     private static final int MAX_PROFILE_BYTES = 1024 * 1024;
@@ -59,6 +60,8 @@ public final class AuroraModOverviewActivity extends Activity {
     private LinearLayout listContainer;
     private TextView summary;
     private EditText search;
+    private String filter = "Все";
+    private static final int REPORT_PICKER = 9206;
     private String activeGroupName = "";
     private boolean failed;
 
@@ -77,6 +80,11 @@ public final class AuroraModOverviewActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setTitle("Aurora — менеджер модов");
+        BACKGROUND = color("junimo_surface", BACKGROUND);
+        PANEL = color("junimo_surface_container", PANEL);
+        TEXT = color("junimo_on_surface", TEXT);
+        MUTED = color("junimo_on_surface_variant", MUTED);
+        GOOD = color("junimo_primary", GOOD);
         buildUi();
         refresh();
     }
@@ -155,6 +163,24 @@ public final class AuroraModOverviewActivity extends Activity {
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
         listContainer.setPadding(0, dp(10), 0, dp(14));
+        LinearLayout filtering = new LinearLayout(this);
+        filtering.setOrientation(LinearLayout.HORIZONTAL);
+        for (String choice : new String[]{"Все", "Активные", "Проблемы", "Выключены"}) {
+            Button tab = button(choice);
+            tab.setTextSize(11);
+            filtering.addView(tab, new LinearLayout.LayoutParams(0, dp(45), 1));
+            tab.setOnClickListener(view -> { filter = choice; render(); });
+        }
+        page.addView(filtering);
+        Button export = button("Экспорт отчёта о модах");
+        page.addView(export, new LinearLayout.LayoutParams(-1, dp(46)));
+        export.setOnClickListener(view -> {
+            Intent picker = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            picker.setType("text/plain");
+            picker.putExtra(Intent.EXTRA_TITLE, "Aurora-Mod-Health.txt");
+            startActivityForResult(picker, REPORT_PICKER);
+        });
         scroll.addView(listContainer);
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(page);
@@ -350,6 +376,9 @@ public final class AuroraModOverviewActivity extends Activity {
         String needle = search == null ? "" : search.getText().toString().trim().toLowerCase(Locale.ROOT);
         int shown = 0, total = 0;
         for (ModRow row : rows) {
+            if ("Активные".equals(filter) && !row.enabled) continue;
+            if ("Проблемы".equals(filter) && !row.issue) continue;
+            if ("Выключены".equals(filter) && row.enabled) continue;
             if (!(row.name + " " + row.id + " " + row.status + " " + row.author)
                 .toLowerCase(Locale.ROOT).contains(needle)) continue;
             total++;
@@ -384,6 +413,43 @@ public final class AuroraModOverviewActivity extends Activity {
         } else if (total == 0) {
             listContainer.addView(text("Ничего не найдено.", 13, MUTED, false));
         }
+    }
+
+    private int color(String name, int fallback) {
+        return AuroraWorkshopTabsView.themeColor(this, name, fallback);
+    }
+
+    /** Export an informational report only. Never edits C# mod repositories. */
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != REPORT_PICKER || result != RESULT_OK ||
+            data == null || data.getData() == null) return;
+        Uri target = data.getData();
+        StringBuilder report = new StringBuilder(3000);
+        report.append("SMAPI Aurora Mod Health Report\\n");
+        report.append("Group: ").append(activeGroupName).append("\\n");
+        report.append("Status derived from manifest and active profiles only, not gameplay.\\n\\n");
+        for (ModRow item: rows) {
+            report.append(item.issue ? "[ISSUE] " : item.enabled ? "[ACTIVE] " : "[OFF] ")
+                .append(item.name).append(" ").append(item.version).append(" (")
+                .append(item.id).append(")\\n");
+            if (item.issue) report.append(item.details).append("\\n");
+        }
+        new Thread(() -> {
+            try (java.io.OutputStream out = getContentResolver().openOutputStream(target,"w")) {
+                if (out == null) throw new IOException("Cannot export report");
+                byte[] bytes=report.toString().getBytes(StandardCharsets.UTF_8);
+                out.write(bytes);
+                out.flush();
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setMessage("Диагностический отчёт экспортирован. Библиотека модов не изменена.")
+                    .setPositiveButton("OK", null).show());
+            } catch (Exception e) {
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                    .setMessage("Не удалось сохранить отчёт. Файлы модов не изменены.")
+                    .setPositiveButton("OK", null).show());
+            }
+        },"AuroraModHealthExport").start();
     }
 
     private TextView text(String value, int size, int color, boolean bold) {
