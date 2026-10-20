@@ -426,14 +426,14 @@ public final class AuroraModOverviewActivity extends Activity {
             data == null || data.getData() == null) return;
         Uri target = data.getData();
         StringBuilder report = new StringBuilder(3000);
-        report.append("SMAPI Aurora Mod Health Report\\n");
-        report.append("Group: ").append(activeGroupName).append("\\n");
-        report.append("Status derived from manifest and active profiles only, not gameplay.\\n\\n");
+        report.append("SMAPI Aurora Mod Health Report\n");
+        report.append("Group: ").append(activeGroupName).append("\n");
+        report.append("Status derived from manifest and active profiles only, not gameplay.\n\n");
         for (ModRow item: rows) {
             report.append(item.issue ? "[ISSUE] " : item.enabled ? "[ACTIVE] " : "[OFF] ")
                 .append(item.name).append(" ").append(item.version).append(" (")
-                .append(item.id).append(")\\n");
-            if (item.issue) report.append(item.details).append("\\n");
+                .append(item.id).append(")\n");
+            if (item.issue) report.append(item.details).append("\n");
         }
         new Thread(() -> {
             try (java.io.OutputStream out = getContentResolver().openOutputStream(target,"w")) {
