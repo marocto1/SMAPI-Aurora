@@ -9,9 +9,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AuroraSplitApkInstaller.cs" />
-    <!-- Two generations of AuroraVersionActivity share the same Android Java
-         class name. QA of the split APK installer compiles ONLY the current
-         v1 version; exclude the legacy version-manager/ sibling. -->
-    <AndroidJavaSource Remove="version-manager/AuroraVersionActivity.java" />
+    <!-- This QA project verifies only the standalone C# PackageInstaller bridge.
+         Native Aurora Activities are compiled separately by Android javac/d8
+         in the versioned APK workflows. Xamarin's default recursive Java
+         compilation would duplicate legacy classes and lacks lambda desugar. -->
+    <AndroidJavaSource Remove="**/*.java" />
   </ItemGroup>
 </Project>
