@@ -1,12 +1,12 @@
-# SMAPI Aurora v1.3.0 — unified RC1
+# SMAPI Aurora v1.3.0 — unified RC2
 
-**APK:** [SMAPI-Aurora-v1.3.0-rc.1-arm64-QA.apk](https://github.com/marocto1/SMAPI-Aurora/releases/download/v1.3.0-rc.1/SMAPI-Aurora-v1.3.0-rc.1-arm64-QA.apk)
+**APK:** [SMAPI-Aurora-v1.3.0-rc.2-arm64-QA.apk](https://github.com/marocto1/SMAPI-Aurora/releases/download/v1.3.0-rc.2/SMAPI-Aurora-v1.3.0-rc.2-arm64-QA.apk)
 
-**Release:** [v1.3.0-rc.1](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v1.3.0-rc.1)
+**Release:** [v1.3.0-rc.2](https://github.com/marocto1/SMAPI-Aurora/releases/tag/v1.3.0-rc.2)
 
-**Release file SHA-256:** `524c8b92996a757d51bf976fc9ec1aa12df9a6eea089b3fb77263357bcb48493`
+**Release file SHA-256:** `14d6674b96207370885e5cc980c2f6bc66daf00c367d4eabed443bfe286c4063`
 
-**Verified GitHub build:** [39367951818](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39367951818) (successful Android Java/d8, apktool, zipalign, apksigner, asset parity).
+**Verified GitHub build:** [39367951818](https://github.com/marocto1/SMAPI-Aurora/actions/runs/39368328165) (successful Android Java/d8, apktool, zipalign, apksigner, asset parity).
 
 ## Delivered in the v1.0.0–v1.3.0 consolidated APK
 
@@ -23,9 +23,9 @@
 
 ## Android upgrade and save safety
 
-**IMPORTANT: v1.3.0 RC1 has a NEW ephemeral QA signing certificate**, different from earlier versions. Android does not permit installing it over differently signed same-package APKs. Do **not** uninstall your confirmed-working installation to try RC1 without a verified external backup of mods, groups and game saves. Backups that exist only in the old Aurora app-private directory can disappear when it is uninstalled.
+**IMPORTANT: v1.3.0 RC2 has a NEW ephemeral QA signing certificate**, different from earlier versions. Android does not permit installing it over differently signed same-package APKs. Do **not** uninstall your confirmed-working installation to try RC2 without a verified external backup of mods, groups and game saves. Backups that exist only in the old Aurora app-private directory can disappear when it is uninstalled.
 
-A [stable release workflow](https://github.com/marocto1/SMAPI-Aurora/blob/main/.github/workflows/aurora-v100-stable-gated.yml) is gated on on-device QA and a secured, persistent Android signing key. v1.3.0 RC1 is **NOT** a stable, safely upgradeable production release. An archived QA build cannot itself solve signing-key rotation.
+A [stable release workflow](https://github.com/marocto1/SMAPI-Aurora/blob/main/.github/workflows/aurora-v100-stable-gated.yml) is gated on on-device QA and a secured, persistent Android signing key. v1.3.0 RC2 is **NOT** a stable, safely upgradeable production release. An archived QA build cannot itself solve signing-key rotation.
 
 ## On-device acceptance checks
 
@@ -40,4 +40,4 @@ A [stable release workflow](https://github.com/marocto1/SMAPI-Aurora/blob/main/.
 
 This repository is based on [leontismaro/JunimoGate](https://github.com/leontismaro/JunimoGate) (GPL-3.0). Most base application layouts, the original managed Mods UI, main launcher and underlying SMAPI integration derive from JunimoGate. Aurora-specific additions include the in-app Workshop, download/backup utilities, mod-health interface, release QA, and custom palette changes. Preserve the upstream project's GPL-3.0 license and attribution.
 
-This file documents actual implemented differences; the marketing version number does not replace the device acceptance process.
+RC2 corrects newlines in the diagnostic report's saved text; it does not change SMAPI or the game runtime.\n\nThis file documents actual implemented differences; the marketing version number does not replace the device acceptance process.
