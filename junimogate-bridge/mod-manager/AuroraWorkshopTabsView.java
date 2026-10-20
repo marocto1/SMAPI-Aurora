@@ -45,17 +45,24 @@ public final class AuroraWorkshopTabsView extends LinearLayout {
 
         LinearLayout utilities=new LinearLayout(context);
         utilities.setOrientation(HORIZONTAL);
-        TextView backups=tab("Backup & Restore",false);
-        TextView versions=tab("Версии игры",false);
+        TextView backups=tab("Копии",false);
+        TextView versions=tab("Версии",false);
+        TextView diagnostics=tab("Диагностика",false);
+        backups.setContentDescription("Резервное копирование и восстановление Aurora");
+        versions.setContentDescription("Настройки версий Stardew Valley");
+        diagnostics.setContentDescription("Анализ зависимостей модов и экспорт отчёта");
         utilities.addView(backups,new LayoutParams(0,dp(42),1));
         utilities.addView(versions,new LayoutParams(0,dp(42),1));
+        utilities.addView(diagnostics,new LayoutParams(0,dp(42),1));
         addView(utilities,new LayoutParams(LayoutParams.MATCH_PARENT,dp(42)));
         backups.setOnClickListener(v -> context.startActivity(
             new Intent(context,AuroraBackupActivity.class)));
         versions.setOnClickListener(v -> context.startActivity(
             new Intent(context,AuroraVersionActivity.class)));
+        diagnostics.setOnClickListener(v -> context.startActivity(
+            new Intent(context,AuroraModOverviewActivity.class)));
 
-        setContentDescription("Вкладки Aurora: моды, Workshop, резервные копии, версии игры");
+        setContentDescription("Вкладки Aurora: моды, Workshop, копии, версии, диагностика");
     }
 
     private TextView tab(String text, boolean selected) {
