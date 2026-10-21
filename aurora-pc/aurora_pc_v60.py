@@ -524,7 +524,7 @@ class AuroraApp(tk.Tk):
             def done():
                 self.status.set(diagnostic["message"])
                 messagebox.showinfo("Aurora 6.0 · UDP хоста",
-                    diagnostic["message"] + "\\n\\n" +
+                    diagnostic["message"] + "\n\n" +
                     "Это проверка локального сокета, а не доступности с Android. " +
                     "Для игры нужны совместимые версии и реальное подключение к ферме.")
             self.after(0,done)
