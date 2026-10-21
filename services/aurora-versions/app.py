@@ -68,6 +68,17 @@ def catalog():
     return results
 
 
+def configured() -> bool:
+    try:
+        return (all(os.environ.get(name) for name in REQUIRED_ENV)
+            and ACCOUNT.fullmatch(os.environ["AURORA_R2_ACCOUNT_ID"]) is not None
+            and len(os.environ["AURORA_ADMIN_TOKEN"])>=24
+            and len(os.environ["AURORA_SESSION_SECRET"])>=32
+            and bool(catalog()))
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return False
+
+
 def token(subject: str, lifetime: int = 30*24*3600) -> str:
     data = json.dumps({"sub":subject,"exp":int(time.time())+lifetime},
         separators=(",",":"),sort_keys=True).encode()
@@ -163,7 +174,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path).path
         if path=="/health":
-            return self.response(200,{"ready":True})
+            return self.response(200,{"ready":configured()})
+        if not configured():
+            return self.response(503,{"error":"owner server setup required"})
         if not self.device_allowed():
             return self.response(401,{"error":"owner pairing required"})
         if path=="/v1/versions":
@@ -182,6 +195,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path=urllib.parse.urlsplit(self.path).path
+        if not configured():
+            return self.response(503,{"error":"owner server setup required"})
         if path=="/v1/pair/create":
             if not self.admin_allowed():
                 return self.response(403,{"error":"admin only"})
@@ -207,13 +222,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    for name in REQUIRED_ENV:
-        if not os.environ.get(name):raise RuntimeError("Missing server configuration "+name)
-    if not ACCOUNT.fullmatch(os.environ["AURORA_R2_ACCOUNT_ID"]):
-        raise RuntimeError("Invalid R2 account id")
-    if len(os.environ["AURORA_ADMIN_TOKEN"])<24 or len(os.environ["AURORA_SESSION_SECRET"])<32:
-        raise RuntimeError("Weak server secret")
-    catalog()
+    # Safe initial deployment without keys: health is ready=false and private
+    # endpoints return 503 until the owner configures R2 and server secrets.
     port=int(os.environ.get("PORT","8080"))
     ThreadingHTTPServer(("0.0.0.0",port),Handler).serve_forever()
 
