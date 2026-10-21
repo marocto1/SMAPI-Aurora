@@ -135,7 +135,7 @@ jobs:
           set -euo pipefail
           APK="$RUNNER_TEMP/aurora-v401/dist/SMAPI-Aurora-v4.0.0-rc.2-arm64-QA.apk"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v401/badging.txt"
-          grep -Fq "package: name='org.junimogate.app' versionCode='401' versionName='v4.0.0-rc.2'" "$RUNNER_TEMP/aurora-v401/badging.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='401' versionName='4.0.0-rc.2'" "$RUNNER_TEMP/aurora-v401/badging.txt"
           grep -Fq "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-v401/badging.txt"
           "$BUILD_TOOLS/aapt" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/aurora-v401/manifest.txt"
           grep -Fq 'AuroraModOverviewActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
