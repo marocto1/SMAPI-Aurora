@@ -78,7 +78,7 @@ jobs:
           --mods-path and store files in local user AppData.
           GPL-3.0 derivative; original project JunimoGate and SMAPI credited.
           '@ | Set-Content -Path 'dist/README-PC.txt'
-          $tag = 'v4.0.0-pc-rc.1'
+          $tag = 'v4.0.0-pc-rc.2'
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host 'Existing immutable Windows preview release retained'
