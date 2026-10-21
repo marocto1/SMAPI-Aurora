@@ -108,17 +108,20 @@ def restore_new_profile(archive: Path, profile_name: str,
     if profile_name == "Default":
         raise ValueError("Restoration to live Default profile is forbidden")
     dest = core.profile_folder(profile_name, root)
-    if dest.exists() or dest.parent.exists() and dest.parent.is_symlink():
+    if dest.parent.exists():
         raise FileExistsError("Choose a NEW profile name; existing files are never overwritten")
     rows = preview_archive(archive)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix=".aurora-recovery-", dir=dest.parent))
+    profiles = dest.parent.parent
+    profiles.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=".aurora-recovery-", dir=profiles))
+    staged_mods = stage / "Mods"
+    staged_mods.mkdir()
     try:
         with zipfile.ZipFile(archive) as z:
             for row in rows:
                 relative = PurePosixPath(row["path"])
-                target = stage.joinpath(*relative.parts)
-                if not target.resolve().is_relative_to(stage.resolve()):
+                target = staged_mods.joinpath(*relative.parts)
+                if not target.resolve().is_relative_to(staged_mods.resolve()):
                     raise ValueError("Target escapes isolated staging directory")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 digest = hashlib.sha256()
@@ -135,9 +138,9 @@ def restore_new_profile(archive: Path, profile_name: str,
                         output.write(block)
                 if count != row["bytes"] or digest.hexdigest() != row["sha256"]:
                     raise ValueError("Backup content failed SHA-256 verification")
-        if dest.exists():
+        if dest.parent.exists():
             raise FileExistsError("Profile was created while restoring; refuse overwrite")
-        os.rename(stage, dest)
+        os.rename(stage, dest.parent)
     finally:
         if stage.exists():
             shutil.rmtree(stage)
