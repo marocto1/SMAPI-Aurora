@@ -171,8 +171,56 @@ class Handler(BaseHTTPRequestHandler):
         expected="Bearer "+os.environ["AURORA_ADMIN_TOKEN"]
         return hmac.compare_digest(supplied,expected)
 
+    def admin_page(self):
+        # Static HTML: nothing secret is embedded in the served document.
+        document = """<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Aurora — Привязка личного устройства</title>
+<style>body{font:16px system-ui;background:#121626;color:#e9eeff;max-width:600px;
+margin:8vh auto;padding:20px}section{background:#202941;padding:24px;border-radius:18px}
+input,button{font:inherit;padding:12px;border:0;border-radius:9px;margin:8px 0;
+box-sizing:border-box}input{width:100%;background:#303a54;color:white}
+button{background:#86d9e2;color:#111422;cursor:pointer}pre{overflow-wrap:anywhere;
+white-space:pre-wrap;color:#86d9e2}</style>
+<section><h1>Aurora · Моя библиотека</h1>
+<p>Одна привязка телефона. Ключи Cloudflare R2 остаются только на сервере.</p>
+<label>Пароль администратора сервера (не R2)</label>
+<input id="key" type="password" autocomplete="off" aria-label="Пароль">
+<button id="create">Создать приглашение (3 минуты)</button>
+<pre id="result">После настройки сервера нажми кнопку.</pre>
+<p>На телефоне скопируй приглашение, открой Aurora → Версии →
+«Привязать мою библиотеку». Никому не передавай приглашение.</p></section>
+<script>
+document.getElementById("create").addEventListener("click",async()=>{
+ const target=document.getElementById("result");
+ target.textContent="Создаём приглашение…";
+ try{
+ const resp=await fetch("/v1/pair/create",{method:"POST",headers:{
+  "Authorization":"Bearer "+document.getElementById("key").value
+ }});
+ const data=await resp.json();
+ if(!resp.ok)throw Error("Сервер ещё не настроен или пароль неверный.");
+ const code="AURORAPAIR|"+location.origin+"|"+data.pair_code;
+ target.textContent=code;
+ const copy=document.createElement("button");copy.textContent="Скопировать приглашение";
+ copy.addEventListener("click",()=>navigator.clipboard.writeText(code));
+ target.append(document.createElement("hr"),copy);
+ }catch(err){target.textContent=err.message;}
+});
+</script></html>""".encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type","text/html; charset=utf-8")
+        self.send_header("Cache-Control","no-store")
+        self.send_header("X-Frame-Options","DENY")
+        self.send_header("Content-Security-Policy",
+            "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'")
+        self.send_header("Content-Length",str(len(document)))
+        self.end_headers()
+        self.wfile.write(document)
+
     def do_GET(self):
         path=urllib.parse.urlsplit(self.path).path
+        if path=="/admin":return self.admin_page()
         if path=="/health":
             return self.response(200,{"ready":configured()})
         if not configured():
