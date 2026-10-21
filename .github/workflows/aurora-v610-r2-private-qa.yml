@@ -1,4 +1,4 @@
-name: Aurora Android v6.1.0 RC1 Link Workshop Safe Installer QA
+name: Aurora Android v6.1.0 RC1 Private R2 Downloads QA
 on:
   push:
     paths:
@@ -46,12 +46,12 @@ jobs:
           python3 -m unittest discover -s junimogate-bridge/v50 -p 'test_*.py' -v
           python3 -m unittest discover -s junimogate-bridge/v60 -p 'test_*.py' -v
           python3 -m unittest discover -s junimogate-bridge/v61 -p 'test_*.py' -v
-          grep -Fq 'AURORA_ROOM_V1 ' junimogate-bridge/v60/AuroraUnifiedActivity.java junimogate-bridge/v61/AuroraR2Signer.java junimogate-bridge/v61/AuroraR2Secrets.java junimogate-bridge/v61/AuroraR2PrivateActivity.java
+          grep -Fq 'AURORA_ROOM_V1 ' junimogate-bridge/v60/AuroraUnifiedActivity.java junimogate-bridge/v61/AuroraR2Signer.java junimogate-bridge/v61/AuroraR2Secrets.java junimogate-bridge/v61/AuroraR2PrivateActivity.java junimogate-bridge/v61/AuroraR2Signer.java junimogate-bridge/v61/AuroraR2Secrets.java junimogate-bridge/v61/AuroraR2PrivateActivity.java
           grep -Fq 'AURORA_UDP_V1 ' junimogate-bridge/v60/AuroraUnifiedActivity.java
           grep -Fq 'com.chucklefish.stardewvalley' junimogate-bridge/v30/inject_v30_rc2.py
           grep -Fq 'AURORA_UDP_V1 ' junimogate-bridge/v30/AuroraUdpDiagnosticActivity.java
           grep -Fq 'AuroraRecoveryPreviewActivity.class' junimogate-bridge/v61/AuroraHubActivity.java
-          grep -Fq 'AuroraModAuditActivity.class' junimogate-bridge/v30/AuroraHubActivity.java
+          grep -Fq 'AuroraModAuditActivity.class' junimogate-bridge/v61/AuroraHubActivity.java
           grep -Fq 'GET_SIGNING_CERTIFICATES' junimogate-bridge/v25/AuroraSafetyActivity.java
           grep -Fq 'NetworkCapabilities.TRANSPORT_VPN' junimogate-bridge/v25/AuroraNetworkActivity.java
           grep -Fq 'AuroraHubActivity.class' junimogate-bridge/v25/AuroraWorkshopTabsView.java
