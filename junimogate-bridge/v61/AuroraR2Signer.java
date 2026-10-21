@@ -64,13 +64,13 @@ public final class AuroraR2Signer {
         if(path==null||path.isEmpty())path="/";
         String query=url.getQuery()==null?"":url.getQuery();
         String payloadHash=hex(digest(new byte[0]));
-        String canonicalHeaders="host:"+url.getHost().toLowerCase(Locale.ROOT)+"\\n"+
-            "x-amz-content-sha256:"+payloadHash+"\\n"+
-            "x-amz-date:"+stamp+"\\n";
+        String canonicalHeaders="host:"+url.getHost().toLowerCase(Locale.ROOT)+"\n"+
+            "x-amz-content-sha256:"+payloadHash+"\n"+
+            "x-amz-date:"+stamp+"\n";
         String signedHeaders="host;x-amz-content-sha256;x-amz-date";
-        String request="GET\\n"+path+"\\n"+query+"\\n"+canonicalHeaders+
-            "\\n"+signedHeaders+"\\n"+payloadHash;
-        String stringToSign="AWS4-HMAC-SHA256\\n"+stamp+"\\n"+scope+"\\n"+
+        String request="GET\n"+path+"\n"+query+"\n"+canonicalHeaders+
+            "\n"+signedHeaders+"\n"+payloadHash;
+        String stringToSign="AWS4-HMAC-SHA256\n"+stamp+"\n"+scope+"\n"+
             hex(digest(request.getBytes(StandardCharsets.UTF_8)));
         byte[] key=("AWS4"+secret).getBytes(StandardCharsets.UTF_8);
         key=hmac(key,date);
