@@ -80,12 +80,12 @@ jobs:
           --mods-path and store files in local user AppData.
           GPL-3.0 derivative; original project JunimoGate and SMAPI credited.
           '@ | Set-Content -Path 'dist/README-PC.txt'
-          $tag = 'v4.0.0-pc-rc.1'
+          $tag = 'v5.0.0-pc-rc.1'
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host 'Existing immutable Windows preview release retained'
           } else {
-            gh release create $tag $exe 'dist/SHA256SUMS-PC.txt' 'dist/README-PC.txt' --prerelease --title 'Aurora PC v5.0.0 RC1 Link Workshop Unified QA.1 — Windows Launcher' --notes 'Aurora Next 5.0 Windows RC1: QR code for ephemeral room invitation, one-click local game/SMAPI/mod/room readiness, read-only Workshop 5.0 mod profile JSON export and import/compare, previous isolate-only recovery and existing LAN or separately established VPN connection diagnostics. No native VPN, auto game join or verified cross-play. EXE unsigned; real game and SMAPI installed by user.'
+            gh release create $tag $exe 'dist/SHA256SUMS-PC.txt' 'dist/README-PC.txt' --prerelease --title 'Aurora PC v5.0.0 RC1 — Windows Launcher' --notes 'Aurora Next 5.0 Windows RC1: QR code for ephemeral room invitation, one-click local game/SMAPI/mod/room readiness, read-only Workshop 5.0 mod profile JSON export and import/compare, previous isolate-only recovery and existing LAN or separately established VPN connection diagnostics. No native VPN, auto game join or verified cross-play. EXE unsigned; real game and SMAPI installed by user.'
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
       - uses: actions/upload-artifact@v4
