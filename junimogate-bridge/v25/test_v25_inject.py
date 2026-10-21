@@ -80,7 +80,7 @@ class V25Integration(unittest.TestCase):
         self.assertEqual(names.count(SAFETY), 1)
         self.assertEqual(names.count(NETWORK), 1)
         perms=[p.get('{http://schemas.android.com/apk/res/android}name')
-               for p in tree.getroot().findall('uses-permission')]
+               for p in root.findall('uses-permission')]
         self.assertIn('android.permission.ACCESS_NETWORK_STATE',perms)
         self.assertEqual(len([
             c for a in activities for i in a.findall("intent-filter")
