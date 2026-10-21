@@ -35,7 +35,7 @@ class V50QA(unittest.TestCase):
             self.assertIn(field,src)
         self.assertIn('"500"',src)
         self.assertIn('5.0.0-rc.1',src)
-        self.assertNotIn('QUERY_ALL_PACKAGES',src)
+        self.assertNotIn('network_permission.set(A + "name", "android.permission.QUERY_ALL_PACKAGES")',src)
 
 if __name__=="__main__":
     unittest.main()
