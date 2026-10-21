@@ -45,6 +45,8 @@ def save_settings(values: dict[str, Any], root: Path | None = None) -> None:
         "game_directory": str(values.get("game_directory", "")),
         "profile": str(values.get("profile", "Default")),
     }
+    safe["game_version"] = str(values.get("game_version", ""))[:48]
+    safe["smapi_version"] = str(values.get("smapi_version", ""))[:48]
     if safe["profile"] != "Default" and not PROFILE_NAME.fullmatch(safe["profile"]):
         raise ValueError("Invalid profile")
     fd, tmp = tempfile.mkstemp(prefix=".aurora-", dir=dest.parent, text=True)
@@ -62,7 +64,7 @@ def save_settings(values: dict[str, Any], root: Path | None = None) -> None:
 def load_settings(root: Path | None = None) -> dict[str, str]:
     dest = settings_file(root)
     if not dest.is_file():
-        return {"game_directory": "", "profile": "Default"}
+        return {"game_directory": "", "profile": "Default", "game_version": "", "smapi_version": ""}
     try:
         if dest.stat().st_size > 16384:
             raise ValueError("Settings too large")
@@ -76,7 +78,12 @@ def load_settings(root: Path | None = None) -> dict[str, str]:
             raise ValueError("Invalid settings")
         if profile != "Default" and not PROFILE_NAME.fullmatch(profile):
             raise ValueError("Invalid profile")
-        return {"game_directory": game, "profile": profile}
+        g = raw.get("game_version", "")
+        sm = raw.get("smapi_version", "")
+        if not isinstance(g, str) or not isinstance(sm, str):
+            raise ValueError("Invalid declared versions")
+        return {"game_directory": game, "profile": profile,
+                "game_version": g[:48], "smapi_version": sm[:48]}
     except (OSError, ValueError, json.JSONDecodeError):
         return {"game_directory": "", "profile": "Default"}
 
