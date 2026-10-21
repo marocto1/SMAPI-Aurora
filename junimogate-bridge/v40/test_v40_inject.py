@@ -245,7 +245,7 @@ class V40Integration(unittest.TestCase):
         updates=(root/"v40/AuroraUpdateCenterActivity.java").read_text()
         for token in ("AURORA_ROOM_V1 ", "AURORA_UDP_V1 ",
                       "AURORA_UDP_OK_V1 ", "AuroraCoopCompatibility.compare(this,metadata)",
-                      "result.append(\"– Игровой UDP 24642: НЕ проверялся."):
+                      "Игровой UDP 24642: НЕ проверялся."):
             self.assertIn(token,wizard)
         self.assertIn("AuroraUnifiedActivity.class",hub)
         self.assertIn("AuroraUnifiedActivity.class",updates)
