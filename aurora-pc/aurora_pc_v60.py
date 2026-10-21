@@ -1,4 +1,4 @@
-"""Aurora SMAPI PC v2.0: invite-only local/VPN rooms, mods and game launch."""
+"""Aurora SMAPI PC v6.0 RC1: manual game join plus safer room handoff."""
 from __future__ import annotations
 
 import os
@@ -298,10 +298,10 @@ class AuroraApp(tk.Tk):
 
     def open_workshop(self):
         popup=tk.Toplevel(self)
-        popup.title("Aurora Workshop 4.0 · поиск / категории / зависимости")
+        popup.title("Aurora Workshop 5.0 · поиск / категории / зависимости")
         popup.geometry("765x720")
         popup.configure(bg=BG)
-        self.label(popup,"AURORA WORKSHOP 4.0",size=18,color=ACCENT,bold=True)
+        self.label(popup,"AURORA WORKSHOP 5.0",size=18,color=ACCENT,bold=True)
         self.label(popup,
             "Официальные Nexus-страницы. Установка через Import ZIP. "
             "Работа на Android не гарантируется.",size=10,color=MUTED)
