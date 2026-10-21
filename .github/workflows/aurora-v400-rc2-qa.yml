@@ -1,0 +1,214 @@
+name: Aurora Android v4.0.0 RC2 Stability QA
+on:
+  push:
+    paths:
+      - 'junimogate-bridge/mod-manager/**'
+      - 'junimogate-bridge/v1/**'
+      - 'junimogate-bridge/v13/**'
+      - 'junimogate-bridge/v14/**'
+      - 'junimogate-bridge/v15/**'
+      - 'junimogate-bridge/v18/**'
+      - 'junimogate-bridge/v21/**'
+      - 'junimogate-bridge/v25/**'
+      - 'junimogate-bridge/v30/**'
+      - 'junimogate-bridge/v40/**'
+      - 'junimogate-bridge/v40rc2/**'
+      - 'junimogate-bridge/version-manager/**'
+      - '.github/workflows/aurora-v401-rc2-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test safe in-app Workshop injection and no Nexus API use
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s junimogate-bridge/mod-manager -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v1 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v13 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v14 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v15 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v18 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v21 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v25 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v30 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v40 -p 'test_*.py' -v
+          python3 -m unittest discover -s junimogate-bridge/v40rc2 -p 'test_*.py' -v
+          grep -Fq 'AURORA_ROOM_V1 ' junimogate-bridge/v40rc2/AuroraUnifiedActivity.java
+          grep -Fq 'AURORA_UDP_V1 ' junimogate-bridge/v40/AuroraUnifiedActivity.java
+          grep -Fq 'com.chucklefish.stardewvalley' junimogate-bridge/v30/inject_v30_rc2.py
+          grep -Fq 'AURORA_UDP_V1 ' junimogate-bridge/v30/AuroraUdpDiagnosticActivity.java
+          grep -Fq 'AuroraRecoveryPreviewActivity.class' junimogate-bridge/v40/AuroraHubActivity.java
+          grep -Fq 'AuroraModAuditActivity.class' junimogate-bridge/v30/AuroraHubActivity.java
+          grep -Fq 'GET_SIGNING_CERTIFICATES' junimogate-bridge/v25/AuroraSafetyActivity.java
+          grep -Fq 'NetworkCapabilities.TRANSPORT_VPN' junimogate-bridge/v25/AuroraNetworkActivity.java
+          grep -Fq 'AuroraHubActivity.class' junimogate-bridge/v25/AuroraWorkshopTabsView.java
+          grep -Fq 'android:layout_height="152dp"' junimogate-bridge/v25/inject_v25_rc2.py
+          grep -Fq 'renderListings()' junimogate-bridge/v25/AuroraWorkshopCatalogActivity.java
+          grep -Fq 'AURORA_ROOM_V1 ' junimogate-bridge/v21/AuroraRoomActivity.java
+          grep -Fq 'AuroraWorkshopCatalogActivity.class' junimogate-bridge/v21/AuroraWorkshopActivity.java
+          grep -Fq 'AURORA_DISCOVER_V2 ' junimogate-bridge/v18/AuroraCoopActivity.java
+          grep -Fq 'AuroraCoopCompatibility.compare(this,data)' junimogate-bridge/v18/AuroraCoopActivity.java
+          grep -Fq 'AuroraCoopActivity.class' junimogate-bridge/v15/AuroraUpdateCenterActivity.java
+          grep -Fq 'new InetSocketAddress(ip,AURORA_PORT)' junimogate-bridge/v15/AuroraCoopActivity.java
+          grep -Fq 'int verified=verifyArchive(uri)' junimogate-bridge/v14/AuroraBackupActivity.java
+          if grep -E 'commitRestore[(]|[.]renameTo[(]|setPositiveButton[(]"Подтвердить замену"' junimogate-bridge/v14/AuroraBackupActivity.java; then
+            echo "v1.4 QA must not automatically replace live mod data/saves" >&2
+            exit 1
+          fi
+          grep -Fq 'Multiplayer: not implemented by Aurora launcher' junimogate-bridge/v14/AuroraUpdateCenterActivity.java
+          grep -Fq 'getSharedPreferences("aurora-workshop-favorites"' junimogate-bridge/mod-manager/AuroraWorkshopActivity.java
+          grep -Fq 'REPORT_PICKER' junimogate-bridge/mod-manager/AuroraModOverviewActivity.java
+          grep -Fq 'Intent.ACTION_CREATE_DOCUMENT' junimogate-bridge/v1/AuroraBackupActivity.java
+          grep -Fq 'ROOT_SAVES = "saves/"' junimogate-bridge/v1/AuroraBackupActivity.java
+          grep -Fq 'smapi-aurora-full-backup/v1' junimogate-bridge/v1/AuroraBackupActivity.java
+          if grep -Fq 'this::downloadAndInstallFromDrive'             <(sed -n '/private void buildVersionsPage(/,/private String gameVersion(/p' junimogate-bridge/v1/AuroraVersionActivity.java); then
+            echo "Google Drive option must not be visible in Aurora v1" >&2; exit 1
+          fi
+          WORKSHOP=junimogate-bridge/mod-manager/AuroraWorkshopActivity.java
+          TABS=junimogate-bridge/mod-manager/AuroraWorkshopTabsView.java
+          test -s "$WORKSHOP"
+          test -s "$TABS"
+          grep -Fq 'new WebView(this)' "$WORKSHOP"
+          grep -Fq 'setDownloadListener' "$WORKSHOP"
+          grep -Fq 'Manual Download' "$WORKSHOP"
+          grep -Fq 'AuroraWorkshopActivity.class' "$TABS"
+          grep -Fq 'requestOriginalZipImport()' "$TABS"
+          grep -Fq 'button.performClick()' "$TABS"
+          grep -Fq 'AuroraDirectDownloads.download(' "$WORKSHOP"
+          grep -Fq 'validateArchive(outputFile)' junimogate-bridge/mod-manager/AuroraDirectDownloads.java junimogate-bridge/v1/AuroraBackupActivity.java
+          grep -Fq 'AuroraWorkshopTabsView.requestOriginalZipImport()' "$WORKSHOP"
+          if grep -Ei 'api[.]nexusmods[.]com|apikey|HttpURLConnection|FileOutputStream|FileWriter|RandomAccessFile|ProcessBuilder' "$WORKSHOP"; then
+            echo "Workshop must not use Nexus API or directly mutate private mod library" >&2
+            exit 1
+          fi
+          if grep -E 'FileOutputStream|FileWriter|RandomAccessFile|[.]delete[(]|[.]renameTo[(]|[.]mkdir[(]|ProcessBuilder' junimogate-bridge/mod-manager/AuroraModOverviewActivity.java; then
+            echo "Mod overview must remain read-only" >&2; exit 1
+          fi
+      - name: Acquire pinned baseline and Android build tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aurora-v401"/{classes,newdex,dist}
+          B="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          echo "BUILD_TOOLS=$B" >> "$GITHUB_ENV"
+          test -s "$ANDROID_HOME/platforms/android-35/android.jar"
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/aurora-v401/base.apk" https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.9-boot-recovery-qa/SMAPI-Aurora-v0.8.9-Boot-Recovery-arm64-QA.apk
+          echo "8b1a87249b7169b7f5dc40d8dcec9e9efc0f4eb84178ecb6ce9c3c5c638f0b60  $RUNNER_TEMP/aurora-v401/base.apk" | sha256sum -c
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/aurora-v401/apktool.jar" https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  $RUNNER_TEMP/aurora-v401/apktool.jar" | sha256sum -c
+          curl -fLsS --retry 3 -o "$RUNNER_TEMP/aurora-v401/firstparty-smoke.zip" https://github.com/marocto1/SMAPI-Aurora/releases/download/v0.8.8-smapi-smoke-qa/Aurora-SMAPI-Smoke-Mod-v1.0.0.zip
+          echo "c314427ab39d5c061938fccf50a089c811040a8087a7cd946489d69561e67268  $RUNNER_TEMP/aurora-v401/firstparty-smoke.zip" | sha256sum -c
+      - name: Compile read-only dashboard alongside unchanged version manager
+        run: |
+          set -euo pipefail
+          javac --release 8 -encoding UTF-8 -cp "$ANDROID_HOME/platforms/android-35/android.jar" -d "$RUNNER_TEMP/aurora-v401/classes" junimogate-bridge/v1/AuroraVersionActivity.java junimogate-bridge/mod-manager/AuroraModOverviewActivity.java junimogate-bridge/v25/AuroraWorkshopActivity.java junimogate-bridge/v25/AuroraWorkshopTabsView.java junimogate-bridge/mod-manager/AuroraDirectDownloads.java junimogate-bridge/v14/AuroraBackupActivity.java junimogate-bridge/v40/AuroraUpdateCenterActivity.java junimogate-bridge/v18/AuroraCoopActivity.java junimogate-bridge/v18/AuroraCoopCompatibility.java junimogate-bridge/v30/AuroraRoomActivity.java junimogate-bridge/v25/AuroraWorkshopCatalogActivity.java junimogate-bridge/v30/AuroraHubActivity.java junimogate-bridge/v30/AuroraSafetyActivity.java junimogate-bridge/v25/AuroraNetworkActivity.java junimogate-bridge/v30/AuroraRecoveryPreviewActivity.java junimogate-bridge/v30/AuroraUdpDiagnosticActivity.java junimogate-bridge/v30/AuroraModAuditActivity.java junimogate-bridge/v40/AuroraUnifiedActivity.java
+          find "$RUNNER_TEMP/aurora-v401/classes" -name '*.class' -print0 | xargs -0 "$BUILD_TOOLS/d8" --min-api 26 --lib "$ANDROID_HOME/platforms/android-35/android.jar" --output "$RUNNER_TEMP/aurora-v401/newdex"
+          test -s "$RUNNER_TEMP/aurora-v401/newdex/classes.dex"
+      - name: Inject shortcut into untouched v0.8.9
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v401/apktool.jar" d -s -f "$RUNNER_TEMP/aurora-v401/base.apk" -o "$RUNNER_TEMP/aurora-v401/decoded"
+          test -s "$RUNNER_TEMP/aurora-v401/decoded/classes3.dex"
+          cp "$RUNNER_TEMP/aurora-v401/newdex/classes.dex" "$RUNNER_TEMP/aurora-v401/decoded/classes3.dex"
+          python3 junimogate-bridge/v40rc2/inject_v40_rc2.py "$RUNNER_TEMP/aurora-v401/decoded"
+      - name: Repackage and sign ARM64 QA
+        run: |
+          set -euo pipefail
+          java -Xmx3072m -jar "$RUNNER_TEMP/aurora-v401/apktool.jar" b "$RUNNER_TEMP/aurora-v401/decoded" -o "$RUNNER_TEMP/aurora-v401/unsigned.apk"
+          "$BUILD_TOOLS/zipalign" -P 16 -f 4 "$RUNNER_TEMP/aurora-v401/unsigned.apk" "$RUNNER_TEMP/aurora-v401/aligned.apk"
+          "$BUILD_TOOLS/zipalign" -c -P 16 4 "$RUNNER_TEMP/aurora-v401/aligned.apk"
+          export QA_PASS="$(openssl rand -hex 18)"
+          keytool -genkeypair -noprompt -alias aurora-qa -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Aurora Mod Manager v0.9.1 QA,O=Marocto" -storetype PKCS12 -keystore "$RUNNER_TEMP/aurora-v401/key.p12" -storepass "$QA_PASS" -keypass "$QA_PASS" >/dev/null
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/aurora-v401/key.p12" --ks-type PKCS12 --ks-key-alias aurora-qa --ks-pass env:QA_PASS --key-pass env:QA_PASS --v2-signing-enabled true --v3-signing-enabled true --out "$RUNNER_TEMP/aurora-v401/dist/SMAPI-Aurora-v4.0.0-rc.2-arm64-QA.apk" "$RUNNER_TEMP/aurora-v401/aligned.apk"
+          unset QA_PASS
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/aurora-v401/dist/SMAPI-Aurora-v4.0.0-rc.2-arm64-QA.apk"
+      - name: Audit binary compatibility with phone-tested build
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/aurora-v401/dist/SMAPI-Aurora-v4.0.0-rc.2-arm64-QA.apk"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/aurora-v401/badging.txt"
+          grep -Fq "package: name='org.junimogate.app' versionCode='401' versionName='v4.0.0-rc.2'" "$RUNNER_TEMP/aurora-v401/badging.txt"
+          grep -Fq "launchable-activity: name='org.junimogate.app.MainActivity'" "$RUNNER_TEMP/aurora-v401/badging.txt"
+          "$BUILD_TOOLS/aapt" dump xmltree "$APK" AndroidManifest.xml > "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraModOverviewActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraWorkshopActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraBackupActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraUpdateCenterActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraCoopActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraRoomActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraWorkshopCatalogActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraHubActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraSafetyActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraNetworkActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraRecoveryPreviewActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraUdpDiagnosticActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraModAuditActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'AuroraUnifiedActivity' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          grep -Fq 'com.chucklefish.stardewvalley' junimogate-bridge/v40/inject_v40.py
+          grep -Fq 'ACCESS_NETWORK_STATE' "$RUNNER_TEMP/aurora-v401/manifest.txt"
+          "$BUILD_TOOLS/aapt" dump xmltree "$APK" res/layout/fragment_mods.xml > "$RUNNER_TEMP/aurora-v401/mods-layout.txt"
+          test -s "$RUNNER_TEMP/aurora-v401/mods-layout.txt"
+          grep -Fq 'SMAPI Aurora' "$RUNNER_TEMP/aurora-v401/badging.txt"
+          grep -Fq 'AuroraWorkshopTabsView' "$RUNNER_TEMP/aurora-v401/mods-layout.txt"
+          python3 - "$RUNNER_TEMP/aurora-v401/base.apk" "$APK" <<'PY'
+          import sys,zipfile
+          with zipfile.ZipFile(sys.argv[1]) as a,zipfile.ZipFile(sys.argv[2]) as b:
+              assert a.testzip() is b.testzip() is None
+              old,new=set(a.namelist()),set(b.namelist())
+              assert old<=new,old-new
+              for name in old:
+                  if name.startswith("META-INF/"):continue
+                  if a.read(name)!=b.read(name):
+                      assert name in {"classes3.dex","AndroidManifest.xml","resources.arsc","res/layout/fragment_mods.xml"},name
+              assert all(n.startswith("res/") or n.startswith("META-INF/") for n in new-old)
+              for name in old:
+                  if name.startswith("lib/") or name.startswith("assets/smapi-managed/"):
+                      assert a.read(name)==b.read(name),name
+              assert not any(n.lower().endswith("/stardewvalley.dll") for n in new)
+              print("PASS: all managed original Mods, GameHost and SMAPI assets byte-identical")
+          PY
+          (cd "$RUNNER_TEMP/aurora-v401/dist" && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Publish QA APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/aurora-v401/dist/READ-ME-FIRST.txt" <<'EOF'
+          Aurora v1.4.0 RC1 Backup Safety and Coop Readiness QA — Android ARM64.
+          Standard Aurora Mods/Groups already supports ZIP import, groups,
+          enable/disable, dependency fixing, config editing and deletion.
+          Aurora Unified v4.0.0 RC1 Android ARM64 (NOT Stable):
+          Unified Setup checks authenticated Aurora PC TCP 24643,
+          mod metadata comparison and authenticated Aurora UDP 24645
+          with a single pasted room invite. Game UDP 24642 is NOT tested.
+          Android installed game package visibility from 3.0 RC2 retained.
+          Original Android app/private saves and SMAPI/GameHost untouched.
+          No built-in VPN, relay, game join, APK signature bypass or restore.
+          Device-to-device Stardew gameplay acceptance is NOT confirmed.
+          Original C# .NET GameHost/SMAPI/mod manager binary unchanged.
+          This QA release is not device-verified.
+          QA signing differs; NOT an in-place upgrade from earlier QA APKs.
+          Do not uninstall older working Aurora without an independently
+          VERIFIED backup of private mods, profiles and saves.
+          Do not uninstall separate Stardew Valley app.
+          EOF
+          TAG=v4.0.0-rc.2
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Existing signed QA artifact retained"
+          else
+            gh release create "$TAG" "$RUNNER_TEMP/aurora-v401/dist/SMAPI-Aurora-v4.0.0-rc.2-arm64-QA.apk" "$RUNNER_TEMP/aurora-v401/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v401/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v4.0.0 RC1 — One-pass Connectivity and Mods" --notes "SMAPI Aurora Android v4.0.0 RC2 ARM64 QA. Restores already-redacted Unified report after orientation changes; does not persist the room token. All previous Aurora Unified 4.0/Coop/Workshop features preserved and SMAPI/GameHost audited unchanged. New ephemeral signer prevents in-place update over differently signed QA builds. No native VPN, no automatic Stardew multiplayer join or verified save restoration. NOT stable."
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SMAPI-Aurora-4.0.0-rc.2-QA
+          path: ${{ runner.temp }}/aurora-v401/dist/
+          if-no-files-found: error
+          retention-days: 14
