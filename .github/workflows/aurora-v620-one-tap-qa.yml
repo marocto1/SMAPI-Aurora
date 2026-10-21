@@ -49,6 +49,7 @@ jobs:
           python3 -m unittest discover -s junimogate-bridge/v60 -p 'test_*.py' -v
           python3 -m unittest discover -s junimogate-bridge/v61 -p 'test_*.py' -v
           python3 -m unittest discover -s junimogate-bridge/v62 -p 'test_*.py' -v
+          python3 -m unittest discover -s services/aurora-versions -p 'test_*.py' -v
           grep -Fq 'AURORA_ROOM_V1 ' junimogate-bridge/v60/AuroraUnifiedActivity.java junimogate-bridge/v62/AuroraOwnerSession.java junimogate-bridge/v62/AuroraOwnerVersionsActivity.java
           grep -Fq 'AURORA_UDP_V1 ' junimogate-bridge/v60/AuroraUnifiedActivity.java junimogate-bridge/v62/AuroraOwnerSession.java junimogate-bridge/v62/AuroraOwnerVersionsActivity.java
           grep -Fq 'com.chucklefish.stardewvalley' junimogate-bridge/v30/inject_v30_rc2.py
