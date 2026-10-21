@@ -25,7 +25,7 @@ public final class AuroraOwnerSession {
         if(!"https".equals(url.getProtocol())||url.getPort()!=-1||
             url.getUserInfo()!=null||url.getQuery()!=null||url.getRef()!=null||
             !"/".equals(url.getPath()) && !url.getPath().isEmpty()||
-            !host.endsWith(".up.railway.app") && !host.endsWith(".workers.dev"))
+            !host.endsWith(".up.railway.app") && !host.endsWith(".workers.dev") && !host.endsWith(".onrender.com"))
             throw new IllegalArgumentException("Only secure Aurora backend HTTPS endpoints");
         return url.getProtocol()+"://"+host;
     }
