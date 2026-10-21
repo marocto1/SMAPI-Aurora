@@ -142,7 +142,7 @@ public final class AuroraOwnerVersionsActivity extends Activity {
         URL url=new URL(path);
         String host=url.getHost().toLowerCase(Locale.ROOT);
         if(!"https".equals(url.getProtocol()) || url.getPort()!=-1 ||
-            !(host.endsWith(".up.railway.app")||host.endsWith(".workers.dev")))
+            !(host.endsWith(".up.railway.app")||host.endsWith(".workers.dev")||host.endsWith(".onrender.com")))
             throw new IllegalArgumentException("Untrusted Aurora backend");
         HttpURLConnection conn=(HttpURLConnection)url.openConnection();
         conn.setInstanceFollowRedirects(false);
