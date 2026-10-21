@@ -1,0 +1,58 @@
+name: Aurora v3.0.0 Stable Safety Gate (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      android_device_qa:
+        type: boolean
+        description: "Android 3.0 candidate installed/launched on real ARM64 devices; save backup and upgrade tested"
+        required: true
+        default: false
+      pc_device_qa:
+        type: boolean
+        description: "Windows EXE launch and recovery-to-new-profile tested with real game/SMAPI"
+        required: true
+        default: false
+      crossplay_qa:
+        type: boolean
+        description: "Android to PC real Stardew Co-op test on LAN/VPN, including save reload"
+        required: true
+        default: false
+      backup_restore_qa:
+        type: boolean
+        description: "Android app-private mod/profile/saves backup and restoration tested and verified"
+        required: true
+        default: false
+permissions:
+  contents: read
+jobs:
+  hold-release-until-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block stable unless signed, audited and real-device accepted
+        shell: bash
+        env:
+          ANDROID_DEVICE_QA: ${{ inputs.android_device_qa }}
+          PC_DEVICE_QA: ${{ inputs.pc_device_qa }}
+          CROSSPLAY_QA: ${{ inputs.crossplay_qa }}
+          BACKUP_RESTORE_QA: ${{ inputs.backup_restore_qa }}
+          RELEASE_KEY_B64: ${{ secrets.AURORA_RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEY_PASS: ${{ secrets.AURORA_RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_CERT_SHA256: ${{ secrets.AURORA_RELEASE_CERT_SHA256 }}
+          RELEASE_KEY_ALIAS: ${{ secrets.AURORA_RELEASE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test "$ANDROID_DEVICE_QA" = true || { echo 'BLOCK: no Android device QA approval' >&2; exit 1; }
+          test "$PC_DEVICE_QA" = true || { echo 'BLOCK: no Windows real game QA approval' >&2; exit 1; }
+          test "$CROSSPLAY_QA" = true || { echo 'BLOCK: no real Stardew cross-platform multiplayer proof' >&2; exit 1; }
+          test "$BACKUP_RESTORE_QA" = true || { echo 'BLOCK: Android save/profile restoration is not verified' >&2; exit 1; }
+          test -n "$RELEASE_KEY_B64" && test -n "$RELEASE_KEY_PASS" &&
+          test -n "$RELEASE_CERT_SHA256" && test -n "$RELEASE_KEY_ALIAS" || {
+            echo 'BLOCK: long-lived Android signing key/certificate not configured' >&2; exit 1;
+          }
+          [[ "$RELEASE_CERT_SHA256" =~ ^[a-fA-F0-9]{64}$ ]] || { echo 'BLOCK: pinned cert digest invalid' >&2; exit 1; }
+          echo 'Documentation gates satisfied, but no Stable artifact published by this workflow.'
+      - name: Stable release must still undergo independent sign-and-cert build
+        run: |
+          echo 'This workflow NEVER signs or publishes Stable artifacts.'
+          echo 'Gate approval alone is insufficient without separate audited release build.'
