@@ -1,0 +1,74 @@
+name: Aurora SMAPI PC v1.6.0 Preview
+on:
+  push:
+    paths:
+      - 'aurora-pc/**'
+      - '.github/workflows/aurora-pc-v160-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pure core tests (without Stardew or SMAPI binaries)
+        shell: pwsh
+        run: |
+          python -m unittest discover -s aurora-pc -p "test_*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m py_compile aurora-pc/aurora_core.py aurora-pc/aurora_pc.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Build native Windows exe with Python Tk and PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade "pyinstaller>=6.10,<7"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name Aurora-SMAPI-PC-v1.6.0-preview.1 --paths aurora-pc aurora-pc/aurora_pc.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (-not (Test-Path 'dist/Aurora-SMAPI-PC-v1.6.0-preview.1.exe')) { throw 'Missing EXE' }
+      - name: Publish Windows EXE and SHA-256
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $exe = 'dist/Aurora-SMAPI-PC-v1.6.0-preview.1.exe'
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Aurora-SMAPI-PC-v1.6.0-preview.1.exe" | Set-Content -Path 'dist/SHA256SUMS-PC.txt'
+          @'
+          Aurora SMAPI PC v1.6.0 preview, Windows 10/11 x64.
+          Works with existing legally installed Stardew Valley + PC SMAPI.
+          Run EXE, select game folder, choose profile, launch SMAPI.
+          Create mod profiles and import one-mod ZIP archives (never overwrite).
+          Coop: opt in to LAN status on TCP 24643, display private PC IP.
+          On Android Aurora 1.5, check this IP. This is launcher detection,
+          NOT proof that Stardew multiplayer works. Game uses UDP 24642.
+          No tunnel, auto network setup, game APK, SMAPI binaries, ADB, admin,
+          background service or file mirroring included.
+          EXE is unsigned, may trigger Windows SmartScreen.
+          'Default' profile uses Stardew Valley/Mods; custom profiles use
+          --mods-path and store files in local user AppData.
+          GPL-3.0 derivative; original project JunimoGate and SMAPI credited.
+          '@ | Set-Content -Path 'dist/README-PC.txt'
+          $tag = 'v1.6.0-pc-preview.1'
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Existing immutable Windows preview release retained'
+          } else {
+            gh release create $tag $exe 'dist/SHA256SUMS-PC.txt' 'dist/README-PC.txt' --prerelease --title 'Aurora SMAPI PC v1.6.0 preview.1 — Windows Launcher' --notes 'First Windows Aurora launcher preview. Native Windows exe built with Tk/PyInstaller, local Stardew+SMAPI launch, read-only mod list, isolated custom mod profiles, safe single-mod ZIP import, opt-in TCP 24643 LAN status for Android v1.5 pairing. Does not implement VPN or direct Stardew multiplayer/UDP 24642. Existing purchased PC game and installed SMAPI required. Unsigned EXE; Windows may warn. No commercial game binaries.'
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aurora-SMAPI-PC-v1.6.0-preview.1
+          path: |
+            dist/Aurora-SMAPI-PC-v1.6.0-preview.1.exe
+            dist/SHA256SUMS-PC.txt
+            dist/README-PC.txt
+          if-no-files-found: error
+          retention-days: 14
