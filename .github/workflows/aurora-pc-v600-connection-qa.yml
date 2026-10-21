@@ -57,6 +57,10 @@ jobs:
           This is NOT Stardew Valley game UDP 24642 connectivity.
           v2.8: read-only comparisons of SMAPI profiles and dependencies.
           v2.9: Control Center 4.0 combined navigation.
+          v6.0: choose already-running Tailscale IP or LAN address in one click.
+          Copy host IP without room bearer token for manual Stardew Co-op join.
+          Read-only Windows Get-NetUDPEndpoint inspection for game UDP 24642.
+          A local UDP listener is NOT proof of remote reachability or crossplay.
           v4.0: one-click readiness report of installed Stardew/SMAPI,
           selected mod profile, declared versions and Aurora room status.
           This report never claims to check game UDP 24642 or real crossplay.
@@ -86,7 +90,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             Write-Host 'Existing immutable Windows preview release retained'
           } else {
-            gh release create $tag $exe 'dist/SHA256SUMS-PC.txt' 'dist/README-PC.txt' --prerelease --title 'Aurora PC v6.0.0 RC1 — Windows Launcher' --notes 'Aurora Next 5.0 Windows RC1: QR code for ephemeral room invitation, one-click local game/SMAPI/mod/room readiness, read-only Workshop 5.0 mod profile JSON export and import/compare, previous isolate-only recovery and existing LAN or separately established VPN connection diagnostics. No native VPN, auto game join or verified cross-play. EXE unsigned; real game and SMAPI installed by user.'
+            gh release create $tag $exe 'dist/SHA256SUMS-PC.txt' 'dist/README-PC.txt' --prerelease --title 'Aurora PC v6.0.0 RC1 — Windows Launcher' --notes 'Aurora Connection 6.0 Windows RC1: QR code for ephemeral room invitation, one-click local game/SMAPI/mod/room readiness, read-only Workshop 5.0 mod profile JSON export and import/compare, previous isolate-only recovery and existing LAN or separately established VPN connection diagnostics. New automatic LAN/Tailscale IP selection, host-address-only copy and local game UDP 24642 listener observation. No native VPN, auto game join or verified cross-play. EXE unsigned; real game and SMAPI installed by user.'
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           } else { Write-Host 'Branch QA only: no GitHub release' }
