@@ -186,30 +186,30 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/aurora-v600/dist/READ-ME-FIRST.txt" <<'EOF'
-          Aurora v1.4.0 RC1 Backup Safety and Coop Readiness QA — Android ARM64.
-          Standard Aurora Mods/Groups already supports ZIP import, groups,
-          enable/disable, dependency fixing, config editing and deletion.
-          Aurora Unified v4.0.0 RC1 Android ARM64 (NOT Stable):
-          Unified Setup checks authenticated Aurora PC TCP 24643,
-          mod metadata comparison and authenticated Aurora UDP 24645
-          with a single pasted room invite. Game UDP 24642 is NOT tested.
-          Android installed game package visibility from 3.0 RC2 retained.
-          Original Android app/private saves and SMAPI/GameHost untouched.
-          No built-in VPN, relay, game join, APK signature bypass or restore.
-          Device-to-device Stardew gameplay acceptance is NOT confirmed.
-          Original C# .NET GameHost/SMAPI/mod manager binary unchanged.
-          This QA release is not device-verified.
-          QA signing differs; NOT an in-place upgrade from earlier QA APKs.
-          Do not uninstall older working Aurora without an independently
-          VERIFIED backup of private mods, profiles and saves.
-          Do not uninstall separate Stardew Valley app.
+          SMAPI Aurora v6.0.0 RC1 Connection Flow QA — Android ARM64.
+          This APK preserves the original Android GameHost and SMAPI assets.
+          Aurora Link 6.0 accepts voluntarily shared text/plain room invites;
+          it does not include a native camera QR scanner.
+          Unified 6.0 validates an authenticated PC room via TCP 24643,
+          compares mod manifests and tests Aurora diagnostic UDP 24645.
+          After successful authenticated TCP, copy only host IP to clipboard
+          for manual Stardew Valley Co-op -> Join; no game joining is automatic.
+          Game UDP 24642 Android-to-PC reachability is NOT tested here.
+          No built-in VPN, relay, NAT traversal, game join or Android save restore.
+          A NEW EPHEMERAL QA signing key is used for each build. Not an
+          in-place upgrade from older mismatched-signature APKs.
+          DO NOT uninstall a working Aurora without verified backups of
+          private mods, profiles, settings and game saves and tested restore.
+          Do not uninstall a separately installed Stardew Valley game.
+          Real Android-to-Windows Stardew multiplayer remains unverified.
+          RC only, NOT Stable.
           EOF
           if [ "${GITHUB_REF}" = 'refs/heads/main' ]; then
           TAG=v6.0.0-rc.1
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Existing signed QA artifact retained"
           else
-            gh release create "$TAG" "$RUNNER_TEMP/aurora-v600/dist/SMAPI-Aurora-v6.0.0-rc.1-arm64-QA.apk" "$RUNNER_TEMP/aurora-v600/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v600/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v6.0.0 RC1 — Connection Flow" --notes "Aurora Connection Flow v6.0.0 RC1 Android ARM64: Link stores only last successful IP, never room token; Unity-style master checks authenticated TCP 24643, mod manifests and diagnostic UDP 24645; Workshop 5.0 filter installed mods; Safe Installer 4.4 inspects a selected APK's package/signing cert/SHA-256 without installing or uninstalling. Original SMAPI/GameHost unchanged. No own VPN, game UDP 24642 test, automatic farm join or Android data restore. New ephemeral QA key is not a safe in-place upgrade from older QA signatures. DO NOT uninstall current working app without verified backups and tested restore; NOT stable."
+            gh release create "$TAG" "$RUNNER_TEMP/aurora-v600/dist/SMAPI-Aurora-v6.0.0-rc.1-arm64-QA.apk" "$RUNNER_TEMP/aurora-v600/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v600/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v6.0.0 RC1 — Connection Flow" --notes "Aurora 6.0 RC1 Android: explicit QR-app text share into Link, temporary authenticated room invites, guarded copy-host-IP for manual Stardew Join, mod metadata and Aurora-only TCP/UDP diagnostics. Original GameHost/SMAPI byte-identical in CI. No built-in QR camera scanner, no VPN, no automatic join or proven crossplay. Ephemeral test signing key; not a safe in-place upgrade from older signatures. NOT Stable."
           fi
           else
             echo "Branch QA only: no release"
