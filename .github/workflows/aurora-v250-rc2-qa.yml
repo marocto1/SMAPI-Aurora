@@ -11,7 +11,7 @@ on:
       - 'junimogate-bridge/v21/**'
       - 'junimogate-bridge/v25/**'
       - 'junimogate-bridge/version-manager/**'
-      - '.github/workflows/aurora-v251-rc2-qa.yml'
+      - '.github/workflows/aurora-v250-rc2-qa.yml'
   workflow_dispatch:
 permissions:
   contents: write
