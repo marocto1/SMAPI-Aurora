@@ -10,7 +10,7 @@ class GameHostProbeTests(unittest.TestCase):
         calls=[]
         def run(cmd,**kwargs):
             calls.append((cmd,kwargs))
-            return SimpleNamespace(returncode=0,stdout="1\\n")
+            return SimpleNamespace(returncode=0,stdout="1\n")
         result=probe.inspect_local_game_udp(platform="win32",which=lambda _: "pwsh.exe",runner=run)
         self.assertEqual(result["status"],"present")
         self.assertTrue(result["local_udp_listener_checked"])
