@@ -25,9 +25,12 @@ def patch(root: Path) -> None:
             app.remove(node)  # remove obsolete R2 access/secret UI entirely
     for name,label in ((VERSIONS,"Aurora · Версии"),
                        (INSTALLER,"Aurora · Установка")):
-        if any(a.get(A+"name")==name for a in app.findall("activity")):
+        found=[a for a in app.findall("activity") if a.get(A+"name")==name]
+        if len(found)>1 or (found and name==VERSIONS):
             raise ValueError("Duplicate installer / version activity")
-        node=ET.SubElement(app,"activity")
+        # Older Aurora injectors may already register the original installer.
+        # Reuse that registration for the newly compiled compatible class.
+        node=found[0] if found else ET.SubElement(app,"activity")
         node.set(A+"name",name)
         node.set(A+"exported","false")
         node.set(A+"label",label)
