@@ -38,7 +38,7 @@ class TestAuroraPC(unittest.TestCase):
             class Proc: pid=12
             return Proc()
         aurora.launch_game(self.game, True, "Coop Team", self.root, spawn=fake_popen)
-        self.assertEqual(Path(calls[0][0][0]), self.game / "StardewModdingAPI.exe")
+        self.assertEqual(Path(calls[0][0][0]).resolve(), (self.game / "StardewModdingAPI.exe").resolve())
         self.assertEqual(calls[0][0][1], "--mods-path")
         self.assertTrue(Path(calls[0][0][2]).is_dir())
         aurora.launch_game(self.game, False, "Coop Team", self.root, spawn=fake_popen)
