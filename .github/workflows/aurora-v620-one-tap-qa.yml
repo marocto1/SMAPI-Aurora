@@ -203,26 +203,27 @@ jobs:
           App verifies SHA256 archive and known split APK parts before
           submitting to Android PackageInstaller; platform confirmation and
           signature checks remain mandatory.
-          Backend is NOT DEPLOYED: Railway deploys are temporarily paused.
+          Backend on Render is deployed but NOT CONFIGURED with owner's private
+          R2 token, catalog and owner credentials. Downloads will not work yet.
           Real downloads, game installation and real devices remain untested.
           Original Android SMAPI/GameHost assets byte parity checked in CI.
           No public distribution of paid Stardew Valley; owner backup only.
           EPHEMERAL QA SIGNING: NOT IN-PLACE UPDATE for mismatched APKs.
           Never uninstall working builds without tested backup/restore.
           EOF
-          if [ "${GITHUB_REF}" = 'refs/heads/main' ]; then
+          if [ "${GITHUB_REF}" = 'refs/heads/main' ] || [ "${GITHUB_REF}" = 'refs/heads/feature/aurora-version-one-tap' ]; then
           TAG=v6.2.0-rc.1
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Existing signed QA artifact retained"
           else
-            gh release create "$TAG" "$RUNNER_TEMP/aurora-v620/dist/SMAPI-Aurora-v6.2.0-rc.1-arm64-QA.apk" "$RUNNER_TEMP/aurora-v620/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v620/dist/SHA256SUMS.txt" --prerelease --title "SMAPI Aurora v6.1.0 RC1 — Connection Flow" --notes "Aurora 6.2 RC1 owner-only version chooser: versions and Download & Install, no R2 API key entry. Private backend with owner pairing and server-only R2 keys NOT YET DEPLOYED. No real downloads or installs verified. GameHost/SMAPI unchanged. Android system install approval and signature mandatory. No public paid-game distribution. Temporary QA signature; do not uninstall working Aurora without tested backups. NOT STABLE."
+            gh release create "$TAG" "$RUNNER_TEMP/aurora-v620/dist/SMAPI-Aurora-v6.2.0-rc.1-arm64-QA.apk" "$RUNNER_TEMP/aurora-v620/dist/READ-ME-FIRST.txt" "$RUNNER_TEMP/aurora-v620/dist/SHA256SUMS.txt" --prerelease --target "${GITHUB_SHA}" --title "SMAPI Aurora v6.2.0 RC1 — Versions (Preview)" --notes "Aurora 6.2 RC1 owner-only version chooser: versions and Download & Install, no R2 API key entry. Private Render backend is live but not yet configured with the owner's private R2 keys and version catalog. No real downloads or installs verified. GameHost/SMAPI unchanged. Android system install approval and signature mandatory. No public paid-game distribution. Temporary QA signature; do not uninstall working Aurora without tested backups. NOT STABLE."
           fi
           else
             echo "Branch QA only: no release"
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: SMAPI-Aurora-6.0.0-rc.1-QA
+          name: SMAPI-Aurora-6.2.0-rc.1-QA
           path: ${{ runner.temp }}/aurora-v620/dist/
           if-no-files-found: error
           retention-days: 14
